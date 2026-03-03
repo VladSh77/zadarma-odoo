@@ -4,10 +4,12 @@ class ZadarmaCall(models.Model):
     _name = 'zadarma.call'
     _description = 'Zadarma Call Log'
 
-    name = fields.Char(string='Call ID')
+    name = fields.Char(string='Call ID Reference')
+    call_id = fields.Char(string='Zadarma Call ID')
     caller_number = fields.Char(string='Caller Number')
     called_number = fields.Char(string='Called Number')
     start_time = fields.Datetime(string='Start Time', default=fields.Datetime.now)
+    end_time = fields.Datetime(string='End Time')
     duration = fields.Integer(string='Duration (sec)')
     status = fields.Selection([
         ('success', 'Success'),
