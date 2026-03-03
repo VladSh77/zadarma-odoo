@@ -24,6 +24,8 @@ class ZadarmaCall(models.Model):
     partner_id = fields.Many2one('res.partner', string='Partner')
     user_id = fields.Many2one('res.users', string='Responsible', default=lambda self: self.env.user)
     recording_url = fields.Char(string='Recording URL')
+    # ПОВЕРТАЄМО ПОЛЕ, ЯКОГО НЕ ВИСТАЧАЛО:
+    recording_attachment_id = fields.Many2one('ir.attachment', string='Recording Attachment')
 
 class ZadarmaAPI(models.AbstractModel):
     _name = 'zadarma.api'
@@ -47,16 +49,13 @@ class ZadarmaAPI(models.AbstractModel):
         if not internal_number:
             return {'status': 'error', 'message': 'SIP номер не вказаний'}
         
-        # ВИПРАВЛЕННЯ: беремо номер як є, тільки прибираємо пробіли
         clean_phone = partner_phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-        
         method = "/v1/request/callback/"
         params_dict = {'from': internal_number, 'to': clean_phone}
         headers = self._get_auth_headers(company, method, params_dict)
         url = f"https://api.zadarma.com{method}"
         
         try:
-            # requests автоматично закодує '+' у '%2B'
             response = requests.get(url, params=params_dict, headers=headers, timeout=15)
             return response.json()
         except Exception as e:
