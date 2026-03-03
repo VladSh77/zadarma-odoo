@@ -4,8 +4,6 @@ import hashlib
 import hmac
 import base64
 import logging
-from collections import OrderedDict
-import urllib.parse
 
 _logger = logging.getLogger(__name__)
 
@@ -39,36 +37,35 @@ class ZadarmaAPI(models.AbstractModel):
         internal = (user.zadarma_internal_number or '').strip()
         
         if not internal:
-            return {'status': 'error', 'message': 'SIP номер не вказаний у профілі'}
+            return {'status': 'error', 'message': 'SIP номер не вказаний'}
 
-        # Залишаємо номер як є (з плюсом), тільки прибираємо пробіли
-        to_number = partner_phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+        # Очищаємо номер від '+' та пробілів
+        to_number = ''.join(c for c in partner_phone if c.isdigit())
         
+        # Видаляємо дублювання 48 (якщо номер 4848..., робимо 48...)
+        if to_number.startswith('4848'):
+            to_number = to_number[2:]
+
         method = "/v1/request/callback/"
         
-        # Сортуємо параметри для підпису
-        params = OrderedDict([
-            ('from', internal),
-            ('to', to_number)
-        ])
+        # Жорстко задаємо рядок параметрів (алфавітний порядок: from потім to)
+        params_str = f"from={internal}&to={to_number}"
         
-        # Створюємо рядок запиту вручну
-        params_str = urllib.parse.urlencode(params)
+        # Підпис за формулою Zadarma
+        md5_params = hashlib.md5(params_str.encode('utf-8')).hexdigest()
+        data_to_sign = method + params_str + md5_params
         
-        # Підпис Zadarma: md5 від рядка параметрів
-        md5_hash = hashlib.md5(params_str.encode('utf-8')).hexdigest()
-        data_to_sign = method + params_str + md5_hash
-        
-        hmac_sha1 = hmac.new(api_secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1).hexdigest()
-        signature = base64.b64encode(hmac_sha1.encode('utf-8')).decode('utf-8')
+        hmac_h = hmac.new(api_secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1).hexdigest()
+        signature = base64.b64encode(hmac_h.encode('utf-8')).decode('utf-8')
         
         headers = {'Authorization': f"{api_key}:{signature}"}
         url = f"https://api.zadarma.com{method}?{params_str}"
         
         try:
-            _logger.info(f"Zadarma Request: {url}")
+            _logger.info(f"Zadarma Calling: {to_number} (internal {internal})")
             response = requests.get(url, headers=headers, timeout=15)
-            return response.json()
+            res_data = response.json()
+            _logger.info(f"Zadarma Response: {res_data}")
+            return res_data
         except Exception as e:
-            _logger.error(f"Zadarma Error: {str(e)}")
             return {'status': 'error', 'message': str(e)}
