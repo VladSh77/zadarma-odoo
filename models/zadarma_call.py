@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import base64
 import logging
+from collections import OrderedDict
 
 _logger = logging.getLogger(__name__)
 
@@ -39,22 +40,16 @@ class ZadarmaAPI(models.AbstractModel):
         if not internal:
             return {'status': 'error', 'message': 'SIP номер не вказаний'}
 
-        # Очищаємо номер від '+' та пробілів
+        # Очищення номера: прибираємо '+', пробіли та дублі 48
         to_number = ''.join(c for c in partner_phone if c.isdigit())
-        
-        # Видаляємо дублювання 48 (якщо номер 4848..., робимо 48...)
         if to_number.startswith('4848'):
             to_number = to_number[2:]
 
         method = "/v1/request/callback/"
-        
-        # Жорстко задаємо рядок параметрів (алфавітний порядок: from потім to)
         params_str = f"from={internal}&to={to_number}"
         
-        # Підпис за формулою Zadarma
         md5_params = hashlib.md5(params_str.encode('utf-8')).hexdigest()
         data_to_sign = method + params_str + md5_params
-        
         hmac_h = hmac.new(api_secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1).hexdigest()
         signature = base64.b64encode(hmac_h.encode('utf-8')).decode('utf-8')
         
@@ -62,10 +57,8 @@ class ZadarmaAPI(models.AbstractModel):
         url = f"https://api.zadarma.com{method}?{params_str}"
         
         try:
-            _logger.info(f"Zadarma Calling: {to_number} (internal {internal})")
+            _logger.info(f"Zadarma Calling: {to_number}")
             response = requests.get(url, headers=headers, timeout=15)
-            res_data = response.json()
-            _logger.info(f"Zadarma Response: {res_data}")
-            return res_data
+            return response.json()
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
