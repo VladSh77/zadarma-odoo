@@ -5,6 +5,7 @@ import hmac
 import base64
 import logging
 from collections import OrderedDict
+import urllib.parse
 
 _logger = logging.getLogger(__name__)
 
@@ -40,39 +41,34 @@ class ZadarmaAPI(models.AbstractModel):
         if not internal:
             return {'status': 'error', 'message': 'SIP номер не вказаний у профілі'}
 
-        # ЛОГІКА ОЧИЩЕННЯ НОМЕРА:
-        # 1. Прибираємо все, крім цифр
-        digits_only = ''.join(c for c in partner_phone if c.isdigit())
+        # Залишаємо номер як є (з плюсом), тільки прибираємо пробіли
+        to_number = partner_phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
         
-        # 2. Вирішуємо проблему дублювання (наприклад, 4848...)
-        # Якщо номер починається на 48, і наступні цифри теж 48, прибираємо перший дубль
-        if digits_only.startswith('4848'):
-            to_number = digits_only[2:]
-        else:
-            to_number = digits_only
-
         method = "/v1/request/callback/"
-        params = {
-            'from': internal,
-            'to': to_number
-        }
         
         # Сортуємо параметри для підпису
-        params_list = sorted(params.items())
-        params_str = "&".join([f"{k}={v}" for k, v in params_list])
+        params = OrderedDict([
+            ('from', internal),
+            ('to', to_number)
+        ])
         
-        # Підпис Zadarma
+        # Створюємо рядок запиту вручну
+        params_str = urllib.parse.urlencode(params)
+        
+        # Підпис Zadarma: md5 від рядка параметрів
         md5_hash = hashlib.md5(params_str.encode('utf-8')).hexdigest()
         data_to_sign = method + params_str + md5_hash
+        
         hmac_sha1 = hmac.new(api_secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1).hexdigest()
         signature = base64.b64encode(hmac_sha1.encode('utf-8')).decode('utf-8')
         
         headers = {'Authorization': f"{api_key}:{signature}"}
-        url = f"https://api.zadarma.com{method}"
+        url = f"https://api.zadarma.com{method}?{params_str}"
         
         try:
-            _logger.info(f"Zadarma Outgoing (No Plus): URL={url}, To={to_number}")
-            response = requests.get(url, params=params, headers=headers, timeout=15)
+            _logger.info(f"Zadarma Request: {url}")
+            response = requests.get(url, headers=headers, timeout=15)
             return response.json()
         except Exception as e:
+            _logger.error(f"Zadarma Error: {str(e)}")
             return {'status': 'error', 'message': str(e)}
