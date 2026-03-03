@@ -1,65 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data>
-        <!-- Tree view for Zadarma calls -->
-        <record id="view_zadarma_call_tree" model="ir.ui.view">
-            <field name="name">zadarma.call.tree</field>
-            <field name="model">zadarma.call</field>
-            <field name="arch" type="xml">
-                <tree>
-                    <field name="name" />
-                    <field name="caller_number" />
-                    <field name="called_number" />
-                    <field name="start_time" />
-                    <field name="duration" />
-                    <field name="status" />
-                </tree>
-            </field>
-        </record>
+    <record id="action_zadarma_call_list" model="ir.actions.act_window">
+        <field name="name">Zadarma Calls</field>
+        <field name="res_model">zadarma.call</field>
+        <field name="view_mode">list,form</field>
+    </record>
 
-        <!-- Form view for Zadarma calls -->
-        <record id="view_zadarma_call_form" model="ir.ui.view">
-            <field name="name">zadarma.call.form</field>
-            <field name="model">zadarma.call</field>
-            <field name="arch" type="xml">
-                <form>
-                    <sheet>
-                        <group>
-                            <group>
-                                <field name="name" />
-                                <field name="call_id" />
-                                <field name="start_time" />
-                                <field name="end_time" />
-                                <field name="duration" />
-                            </group>
-                            <group>
-                                <field name="caller_number" />
-                                <field name="called_number" />
-                                <field name="call_type" />
-                                <field name="status" />
-                                <field name="partner_id" />
-                                <field name="user_id" />
-                            </group>
-                        </group>
-                        <group string="Recording">
-                            <field name="recording_url" widget="url" />
-                            <field name="recording_attachment_id" />
-                        </group>
-                    </sheet>
-                </form>
-            </field>
-        </record>
+    <menuitem id="menu_zadarma_root" 
+              name="Zadarma" 
+              web_icon="zadarma_odoo,static/description/icon.png"
+              sequence="10"/>
 
-        <!-- Action to open Zadarma calls -->
-        <record id="action_zadarma_call" model="ir.actions.act_window">
-            <field name="name">Zadarma Calls</field>
-            <field name="res_model">zadarma.call</field>
-            <field name="view_mode">tree,form</field>
-        </record>
-
-        <!-- Menu item -->
-        <menuitem id="menu_zadarma_root" name="Zadarma" sequence="10" />
-        <menuitem id="menu_zadarma_calls" name="Calls" parent="menu_zadarma_root"
-            action="action_zadarma_call" sequence="20" />
-    </data>
+    <menuitem id="menu_zadarma_calls" 
+              name="Calls" 
+              parent="menu_zadarma_root" 
+              action="action_zadarma_call_list" 
+              sequence="10"/>
 </odoo>
