@@ -3,15 +3,19 @@
     <record id="view_partner_form_zadarma_inherit" model="ir.ui.view">
         <field name="name">res.partner.form.zadarma.inherit</field>
         <field name="model">res.partner</field>
-        <field name="inherit_id" ref="base.view_partner_form" />
+        <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='phone']" position="after">
-                <button name="action_zadarma_call" type="object" icon="fa-phone" class="oe_link"
-                    title="Call via Zadarma" invisible="not phone" />
-            </xpath>
-            <xpath expr="//field[@name='mobile']" position="after">
-                <button name="action_zadarma_call" type="object" icon="fa-phone" class="oe_link"
-                    title="Call via Zadarma" invisible="not mobile" />
+            <xpath expr="//notebook" position="inside">
+                <page string="Дзвінки Zadarma" name="zadarma_calls">
+                    <field name="zadarma_call_ids">
+                        <tree readonly="1">
+                            <field name="start_time"/>
+                            <field name="caller_number"/>
+                            <field name="called_number"/>
+                            <field name="status"/>
+                        </tree>
+                    </field>
+                </page>
             </xpath>
         </field>
     </record>

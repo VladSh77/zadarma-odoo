@@ -36,10 +36,13 @@ class ZadarmaAPI(models.AbstractModel):
         api_secret = (company.zadarma_api_secret or '').strip()
         internal = (user.zadarma_internal_number or '').strip()
         
-        # 1. Очищення номера та виправлення префікса 4848
+        # 1. Очищення номера та логіка для ПЛ/УКР
         clean_to = ''.join(c for c in partner_phone if c.isdigit())
+        
+        # Виправлення 4848 для Польщі
         if clean_to.startswith('48') and len(clean_to) == 11:
             clean_to = clean_to[2:]
+        # Для України (380...) залишаємо як є, Zadarma зрозуміє
 
         if not internal:
             return {'status': 'error', 'message': 'SIP номер не вказаний'}
@@ -59,33 +62,25 @@ class ZadarmaAPI(models.AbstractModel):
             response = requests.get(url, headers=headers, timeout=15)
             resp_data = response.json()
             
-            # 2. Пошук партнера та створення запису для статистики
+            # Пошук контексту клієнта
             active_id = self.env.context.get('active_id')
             active_model = self.env.context.get('active_model')
-            partner = False
-
-            if active_model == 'res.partner' and active_id:
-                partner = self.env['res.partner'].browse(active_id)
-            else:
-                # Якщо клікнули не з картки, шукаємо за номером
-                partner = self.env['res.partner'].search(['|', ('phone', 'ilike', clean_to), ('mobile', 'ilike', clean_to)], limit=1)
 
             if resp_data.get('status') == 'success':
-                # Створюємо запис у моделі zadarma.call (це і є ваша статистика)
-                self.env['zadarma.call'].create({
-                    'name': f"Вихідний дзвінок на {partner_phone}",
+                # СТВОРЮЄМО ЗАПИС ДЛЯ СТАТИСТИКИ
+                vals = {
+                    'name': f"Вихідний на {partner_phone}",
                     'caller_number': internal,
                     'called_number': clean_to,
-                    'partner_id': partner.id if partner else False,
                     'status': 'success',
-                    'start_time': fields.Datetime.now(),
-                })
+                }
+                if active_model == 'res.partner' and active_id:
+                    vals['partner_id'] = active_id
+                    partner = self.env['res.partner'].browse(active_id)
+                    partner.message_post(body=f"📞 <b>Zadarma:</b> Розпочато дзвінок на {partner_phone}")
                 
-                # Записуємо в Chatter (історію) картки клієнта
-                if partner:
-                    partner.message_post(body=f"📞 <b>Zadarma:</b> Ініційовано вихідний дзвінок на номер {partner_phone}")
-            
+                self.env['zadarma.call'].create(vals)
+
             return resp_data
         except Exception as e:
-            _logger.error(f"Zadarma Error: {str(e)}")
             return {'status': 'error', 'message': str(e)}

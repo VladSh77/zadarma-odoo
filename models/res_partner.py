@@ -1,9 +1,10 @@
-from odoo import models, fields, api
+from odoo import models, fields
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
-    def action_zadarma_call(self):
-        """Метод, який викликається кнопкою з інтерфейсу"""
-        self.ensure_one()
-        return self.env['zadarma.api'].make_callback(self.phone or self.mobile)
+    zadarma_call_ids = fields.One2many(
+        'zadarma.call', 
+        'partner_id', 
+        string='Дзвінки Zadarma'
+    )
