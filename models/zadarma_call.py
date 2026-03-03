@@ -21,6 +21,10 @@ class ZadarmaCall(models.Model):
     ], string='Status', default='success')
     partner_id = fields.Many2one('res.partner', string='Partner')
     user_id = fields.Many2one('res.users', string='Responsible', default=lambda self: self.env.user)
+    
+    # Поля для запису розмов
+    recording_url = fields.Char(string='Recording URL')
+    recording_attachment_id = fields.Many2one('ir.attachment', string='Recording Attachment')
 
 class ZadarmaAPI(models.AbstractModel):
     _name = 'zadarma.api'
