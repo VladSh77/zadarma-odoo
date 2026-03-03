@@ -8,6 +8,7 @@
     "license": "LGPL-3",
     "depends": ["contacts", "hr", "mail"],
     "data": [
+        "security/zadarma_security.xml",
         "security/ir.model.access.csv",
         "views/zadarma_views.xml",
         "views/res_company_views.xml",
@@ -18,3 +19,4 @@
     "application": True,
     "auto_install": False,
 }
+# Додайте "security/zadarma_security.xml" у список "data" перед іншими файлами

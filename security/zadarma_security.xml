@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_category_zadarma" model="ir.module.category">
+        <field name="name">Zadarma Integration</field>
+        <field name="sequence">100</field>
+    </record>
+
+    <record id="group_zadarma_user" model="res.groups">
+        <field name="name">User</field>
+        <field name="category_id" ref="module_category_zadarma"/>
+    </record>
+
+    <record id="group_zadarma_admin" model="res.groups">
+        <field name="name">Administrator</field>
+        <field name="category_id" ref="module_category_zadarma"/>
+        <field name="implied_ids" eval="[(4, ref('group_zadarma_user'))]"/>
+        <field name="users" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+    </record>
+</odoo>

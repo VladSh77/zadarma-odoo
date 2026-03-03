@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_users_form_simple_modif_zadarma" model="ir.ui.view">
-        <field name="name">res.users.preferences.zadarma</field>
+    <record id="view_users_form_zadarma" model="ir.ui.view">
+        <field name="name">res.users.form.zadarma</field>
         <field name="model">res.users</field>
-        <field name="inherit_id" ref="base.view_users_form_simple_modif"/>
+        <field name="inherit_id" ref="base.view_users_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//group[@name='signature']" position="before">
-                <group string="Zadarma Integration">
-                    <field name="zadarma_extension"/>
-                </group>
-            </xpath>
+            <notebook position="inside">
+                <page string="Zadarma Settings">
+                    <group>
+                        <field name="zadarma_internal_number"/>
+                    </group>
+                </page>
+            </notebook>
         </field>
     </record>
 </odoo>

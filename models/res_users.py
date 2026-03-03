@@ -1,9 +1,6 @@
-from odoo import fields, models
+from odoo import models, fields
 
 class ResUsers(models.Model):
-    _inherit = "res.users"
+    _inherit = 'res.users'
 
-    zadarma_extension = fields.Char(
-        string="Zadarma Extension",
-        help="Internal SIP number from Zadarma (e.g., 100 or 128155)"
-    )
+    zadarma_internal_number = fields.Char(string='Zadarma Internal Number (SIP)')
