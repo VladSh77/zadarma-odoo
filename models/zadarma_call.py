@@ -33,48 +33,49 @@ class ZadarmaAPI(models.AbstractModel):
     def make_callback(self, partner_phone):
         company = self.env.company
         user = self.env.user
+        
+        # Видаляємо можливі невидимі пробіли в ключах
         api_key = (company.zadarma_api_key or '').strip()
         api_secret = (company.zadarma_api_secret or '').strip()
+        internal = (user.zadarma_internal_number or '').strip()
         
-        internal_number = (user.zadarma_internal_number or '').strip()
-        if not internal_number:
-            return {'status': 'error', 'message': 'SIP номер не вказаний'}
-        
-        # Очищаємо номер клієнта: тільки цифри та плюс
-        clean_phone = ''.join(c for c in partner_phone if c.isdigit() or c == '+')
+        if not internal:
+            return {'status': 'error', 'message': 'SIP номер не вказаний у профілі'}
+
+        # Форматуємо номер: тільки цифри та плюс
+        to_number = ''.join(c for c in partner_phone if c.isdigit() or c == '+')
         method = "/v1/request/callback/"
         
-        # Формуємо параметри саме в такому порядку, як хоче Zadarma для підпису
-        params_dict = {
-            'from': internal_number,
-            'to': clean_phone
+        # Створюємо словник параметрів (сортування за алфавітом важливе!)
+        params = {
+            'from': internal,
+            'to': to_number
         }
-        sorted_params = OrderedDict(sorted(params_dict.items()))
-        params_str = "&".join([f"{k}={v}" for k, v in sorted_params.items()])
+        params_list = sorted(params.items())
+        params_str = "&".join([f"{k}={v}" for k, v in params_list])
         
-        # Генерація підпису за алгоритмом Zadarma:
-        # Signature = base64(hmac_sha1(method + params_str + md5(params_str), secret))
-        md5_params = hashlib.md5(params_str.encode('utf-8')).hexdigest()
-        data_to_sign = method + params_str + md5_params
+        # Алгоритм Zadarma: MD5 від рядка параметрів
+        md5_hash = hashlib.md5(params_str.encode('utf-8')).hexdigest()
         
-        hmac_h = hmac.new(
-            api_secret.encode('utf-8'), 
-            data_to_sign.encode('utf-8'), 
-            hashlib.sha1
-        ).hexdigest()
+        # Рядок для підпису: METHOD + PARAMS_STR + MD5_PARAMS
+        data_to_sign = method + params_str + md5_hash
         
-        signature = base64.b64encode(hmac_h.encode('utf-8')).decode('utf-8')
+        # HMAC-SHA1 підпис
+        hmac_sha1 = hmac.new(api_secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1).hexdigest()
+        
+        # Base64 кодування результату
+        signature = base64.b64encode(hmac_sha1.encode('utf-8')).decode('utf-8')
         
         headers = {'Authorization': f"{api_key}:{signature}"}
         url = f"https://api.zadarma.com{method}"
         
         try:
-            # Використовуємо params_str безпосередньо в URL, щоб уникнути подвійного кодування плюса
-            # але requests все одно може його закодувати, тому передаємо через params=
-            response = requests.get(url, params=params_dict, headers=headers, timeout=15)
-            res_data = response.json()
-            _logger.info(f"Zadarma Full Response: {res_data}")
-            return res_data
+            _logger.info(f"Zadarma Outgoing: URL={url}, Params={params_str}")
+            # Надсилаємо запит (requests сам закодує + у %2B для передачі)
+            response = requests.get(url, params=params, headers=headers, timeout=15)
+            res_json = response.json()
+            _logger.info(f"Zadarma Response: {res_json}")
+            return res_json
         except Exception as e:
-            _logger.error(f"Zadarma API Error: {str(e)}")
+            _logger.error(f"Zadarma Request Failed: {str(e)}")
             return {'status': 'error', 'message': str(e)}
