@@ -16,8 +16,8 @@ class ZadarmaWebhook(http.Controller):
             caller_id = post.get('caller_id', '')
             destination = post.get('destination', '') or post.get('called_did', '')
             
-            # ФІЛЬТР: Ігноруємо технічні дзвінки (0 на 100)
-            if caller_id == '0' or destination == '100' and not destination.startswith('+'):
+            # Ігноруємо технічні дзвінки АТС
+            if caller_id == '0' or destination == '100':
                 return "OK"
 
             call_id = post.get('pbx_call_id')
@@ -25,12 +25,17 @@ class ZadarmaWebhook(http.Controller):
             disposition = post.get('disposition', '')
             call_type = 'outbound' if event == 'NOTIFY_OUT_END' else 'inbound'
             
-            # Пошук партнера
-            search_phone = ''.join(filter(str.isdigit, destination if call_type == 'outbound' else caller_id))[-9:]
-            partner = request.env['res.partner'].sudo().search(['|', ('phone', 'ilike', search_phone), ('mobile', 'ilike', search_phone)], limit=1)
+            # Пошук за останніми 9 цифрами (найнадійніше для CRM)
+            phone_to_search = ''.join(filter(str.isdigit, destination if call_type == 'outbound' else caller_id))
+            partner = False
+            if len(phone_to_search) >= 9:
+                short_phone = phone_to_search[-9:]
+                partner = request.env['res.partner'].sudo().search([
+                    '|', ('phone', 'ilike', short_phone), ('mobile', 'ilike', short_phone)
+                ], limit=1)
 
             vals = {
-                'name': f"{call_type.capitalize()} call to {destination}" if call_type == 'outbound' else f"Inbound from {caller_id}",
+                'name': f"{call_type.capitalize()} call: {caller_id} -> {destination}",
                 'call_id': call_id,
                 'caller_number': caller_id,
                 'called_number': destination,
@@ -44,8 +49,8 @@ class ZadarmaWebhook(http.Controller):
             if existing:
                 existing.write(vals)
             else:
-                new_call = request.env['zadarma.call'].sudo().create(vals)
+                request.env['zadarma.call'].sudo().create(vals)
                 if partner:
-                    partner.sudo().message_post(body=f"<b>📞 Дзвінок Zadarma:</b> {vals['name']}<br/>Тривалість: {duration} сек.<br/>Статус: {vals['status']}")
+                    partner.sudo().message_post(body=f"📞 <b>Дзвінок:</b> {vals['name']}<br/>Тривалість: {duration} сек.")
 
         return "OK"
