@@ -1,23 +1,23 @@
 {
-    "name": "Zadarma Odoo Integration",
-    "version": "17.0.1.0.0",
+    "name": "Zadarma Integration for Campscout",
+    "version": "17.0.1.0.1",
     "category": "Discuss",
-    "summary": "Integrate Zadarma telephony with Odoo",
+    "summary": "Integrate Zadarma telephony with Campscout Odoo",
     "description": """
-        Zadarma telephony integration module
+        Zadarma telephony integration module for Campscout
         - Click-to-call from contacts
         - Call history in chatter
         - Automatic contact creation from calls
         - Call recordings in attachments
+        - Webhook support for real-time call updates
     """,
-    "author": "Your Company",
-    "website": "https://yourcompany.com",
+    "author": "Campscout",
+    "website": "https://campscout.eu",
     "license": "LGPL-3",
     "depends": ["contacts", "hr", "mail"],
     "data": [
         "security/ir.model.access.csv",
         "views/zadarma_views.xml",
-        "views/res_partner_views.xml",
     ],
     "installable": True,
     "application": True,

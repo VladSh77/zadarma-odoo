@@ -47,7 +47,6 @@ class ZadarmaCall(models.Model):
     )
     def _compute_name(self):
         for call in self:
-            # Для нових записів без start_time (тільки при створенні вручну)
             if not call.start_time:
                 call.name = "New Call"
                 continue

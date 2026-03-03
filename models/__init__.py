@@ -1,1 +1,2 @@
-from . import res_company, zadarma_call
+from . import res_company  # noqa
+from . import zadarma_call  # noqa
