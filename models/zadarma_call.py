@@ -24,39 +24,48 @@ class ZadarmaCall(models.Model):
     partner_id = fields.Many2one('res.partner', string='Partner')
     user_id = fields.Many2one('res.users', string='Responsible', default=lambda self: self.env.user)
     recording_url = fields.Char(string='Recording URL')
-    # ПОВЕРТАЄМО ПОЛЕ, ЯКОГО НЕ ВИСТАЧАЛО:
     recording_attachment_id = fields.Many2one('ir.attachment', string='Recording Attachment')
 
 class ZadarmaAPI(models.AbstractModel):
     _name = 'zadarma.api'
     _description = 'Zadarma API Helper'
 
-    def _get_auth_headers(self, company, method, params):
-        api_key = company.zadarma_api_key or ''
-        api_secret = company.zadarma_api_secret or ''
-        sorted_params = OrderedDict(sorted(params.items()))
-        params_str = "&".join([f"{k}={v}" for k, v in sorted_params.items()])
-        md5_params = hashlib.md5(params_str.encode('utf-8')).hexdigest()
-        data_to_sign = method + params_str + md5_params
-        hmac_h = hmac.new(api_secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1).hexdigest()
-        signature_base64 = base64.b64encode(hmac_h.encode('utf-8')).decode('utf-8')
-        return {'Authorization': f"{api_key}:{signature_base64}"}
-
     def make_callback(self, partner_phone):
         company = self.env.company
         user = self.env.user
+        api_key = company.zadarma_api_key or ''
+        api_secret = company.zadarma_api_secret or ''
+        
         internal_number = user.zadarma_internal_number
         if not internal_number:
             return {'status': 'error', 'message': 'SIP номер не вказаний'}
         
-        clean_phone = partner_phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+        # Залишаємо тільки цифри та плюс
+        clean_phone = ''.join(c for c in partner_phone if c.isdigit() or c == '+')
         method = "/v1/request/callback/"
-        params_dict = {'from': internal_number, 'to': clean_phone}
-        headers = self._get_auth_headers(company, method, params_dict)
+        
+        # Параметри мають бути відсортовані для підпису
+        params = {
+            'from': internal_number,
+            'to': clean_phone
+        }
+        sorted_params = OrderedDict(sorted(params.items()))
+        params_str = "&".join([f"{k}={v}" for k, v in sorted_params.items()])
+        
+        # Створення підпису за офіційною документацією Zadarma
+        md5_params = hashlib.md5(params_str.encode('utf-8')).hexdigest()
+        data_to_sign = method + params_str + md5_params
+        hmac_h = hmac.new(api_secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1).hexdigest()
+        signature = base64.b64encode(hmac_h.encode('utf-8')).decode('utf-8')
+        
+        headers = {'Authorization': f"{api_key}:{signature}"}
         url = f"https://api.zadarma.com{method}"
         
         try:
-            response = requests.get(url, params=params_dict, headers=headers, timeout=15)
-            return response.json()
+            _logger.info(f"Zadarma Auth: API Key {api_key}, Signature {signature}")
+            response = requests.get(url, params=params, headers=headers, timeout=15)
+            res_data = response.json()
+            _logger.info(f"Zadarma Full Response: {res_data}")
+            return res_data
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
