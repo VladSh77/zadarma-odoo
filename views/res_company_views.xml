@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_company_form_zadarma_inherit" model="ir.ui.view">
+        <field name="name">res.company.form.zadarma.inherit</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Zadarma API" name="zadarma_api">
+                    <group>
+                        <group string="API Credentials">
+                            <field name="zadarma_api_key"/>
+                            <field name="zadarma_api_secret" password="1"/>
+                            <field name="zadarma_sandbox"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
