@@ -4,7 +4,6 @@ import hashlib
 import hmac
 import base64
 import logging
-from collections import OrderedDict
 
 _logger = logging.getLogger(__name__)
 
@@ -33,20 +32,23 @@ class ZadarmaAPI(models.AbstractModel):
     def make_callback(self, partner_phone):
         company = self.env.company
         user = self.env.user
+        
         api_key = (company.zadarma_api_key or '').strip()
         api_secret = (company.zadarma_api_secret or '').strip()
         internal = (user.zadarma_internal_number or '').strip()
         
+        # 1. Очищаємо номер від +, пробілів та дужок
+        clean_to = ''.join(c for c in partner_phone if c.isdigit())
+        
+        # 2. ВИПРАВЛЕННЯ 4848: Якщо номер починається на 48 і має 11 цифр, відрізаємо 48
+        if clean_to.startswith('48') and len(clean_to) == 11:
+            clean_to = clean_to[2:]
+
         if not internal:
             return {'status': 'error', 'message': 'SIP номер не вказаний'}
 
-        # Очищення номера: прибираємо '+', пробіли та дублі 48
-        to_number = ''.join(c for c in partner_phone if c.isdigit())
-        if to_number.startswith('4848'):
-            to_number = to_number[2:]
-
         method = "/v1/request/callback/"
-        params_str = f"from={internal}&to={to_number}"
+        params_str = f"from={internal}&to={clean_to}"
         
         md5_params = hashlib.md5(params_str.encode('utf-8')).hexdigest()
         data_to_sign = method + params_str + md5_params
@@ -57,8 +59,20 @@ class ZadarmaAPI(models.AbstractModel):
         url = f"https://api.zadarma.com{method}?{params_str}"
         
         try:
-            _logger.info(f"Zadarma Calling: {to_number}")
             response = requests.get(url, headers=headers, timeout=15)
-            return response.json()
+            resp_data = response.json()
+            
+            # 3. ЛОГУВАННЯ В КАРТКУ КЛІЄНТА (Chatter)
+            active_id = self.env.context.get('active_id')
+            active_model = self.env.context.get('active_model')
+            
+            if active_model == 'res.partner' and active_id:
+                partner = self.env['res.partner'].browse(active_id)
+                if resp_data.get('status') == 'success':
+                    partner.message_post(body=f"📞 Ініційовано вихідний дзвінок через Zadarma на номер: +48 {clean_to}")
+                else:
+                    partner.message_post(body=f"❌ Помилка ініціації дзвінка Zadarma: {resp_data}")
+
+            return resp_data
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
