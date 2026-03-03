@@ -37,10 +37,10 @@ class ZadarmaAPI(models.AbstractModel):
         api_secret = (company.zadarma_api_secret or '').strip()
         internal = (user.zadarma_internal_number or '').strip()
         
-        # 1. Очищаємо номер від +, пробілів та дужок
+        # 1. Очищення номера
         clean_to = ''.join(c for c in partner_phone if c.isdigit())
         
-        # 2. ВИПРАВЛЕННЯ 4848: Якщо номер починається на 48 і має 11 цифр, відрізаємо 48
+        # 2. Виправлення 4848
         if clean_to.startswith('48') and len(clean_to) == 11:
             clean_to = clean_to[2:]
 
@@ -62,17 +62,27 @@ class ZadarmaAPI(models.AbstractModel):
             response = requests.get(url, headers=headers, timeout=15)
             resp_data = response.json()
             
-            # 3. ЛОГУВАННЯ В КАРТКУ КЛІЄНТА (Chatter)
+            # 3. Прив'язка до клієнта та створення запису
             active_id = self.env.context.get('active_id')
             active_model = self.env.context.get('active_model')
             
-            if active_model == 'res.partner' and active_id:
+            if resp_data.get('status') == 'success' and active_model == 'res.partner' and active_id:
                 partner = self.env['res.partner'].browse(active_id)
-                if resp_data.get('status') == 'success':
-                    partner.message_post(body=f"📞 Ініційовано вихідний дзвінок через Zadarma на номер: +48 {clean_to}")
-                else:
-                    partner.message_post(body=f"❌ Помилка ініціації дзвінка Zadarma: {resp_data}")
+                
+                # Створюємо запис про дзвінок у таблиці Zadarma Calls
+                self.env['zadarma.call'].create({
+                    'name': f"Вихідний дзвінок: {clean_to}",
+                    'caller_number': internal,
+                    'called_number': clean_to,
+                    'partner_id': active_id,
+                    'status': 'success',
+                    'user_id': self.env.user.id
+                })
+                
+                # Залишаємо нотатку в історії (Chatter) клієнта
+                partner.message_post(body=f"📞 Ініційовано успішний дзвінок через Zadarma на номер +48 {clean_to}")
 
             return resp_data
         except Exception as e:
+            _logger.error(f"Zadarma Callback Error: {str(e)}")
             return {'status': 'error', 'message': str(e)}
