@@ -10,6 +10,7 @@ _logger = logging.getLogger(__name__)
 class ZadarmaCall(models.Model):
     _name = 'zadarma.call'
     _description = 'Zadarma Call Log'
+    _order = 'start_time desc'
 
     name = fields.Char(string='Call ID Reference')
     call_id = fields.Char(string='Zadarma Call ID')
@@ -22,8 +23,6 @@ class ZadarmaCall(models.Model):
     status = fields.Selection([('success', 'Success'), ('failed', 'Failed')], string='Status', default='success')
     partner_id = fields.Many2one('res.partner', string='Partner')
     user_id = fields.Many2one('res.users', string='Responsible', default=lambda self: self.env.user)
-    recording_url = fields.Char(string='Recording URL')
-    recording_attachment_id = fields.Many2one('ir.attachment', string='Recording Attachment')
 
 class ZadarmaAPI(models.AbstractModel):
     _name = 'zadarma.api'
@@ -37,10 +36,8 @@ class ZadarmaAPI(models.AbstractModel):
         api_secret = (company.zadarma_api_secret or '').strip()
         internal = (user.zadarma_internal_number or '').strip()
         
-        # 1. Очищення номера
+        # 1. Очищення номера та виправлення префікса 4848
         clean_to = ''.join(c for c in partner_phone if c.isdigit())
-        
-        # 2. Виправлення 4848
         if clean_to.startswith('48') and len(clean_to) == 11:
             clean_to = clean_to[2:]
 
@@ -62,27 +59,33 @@ class ZadarmaAPI(models.AbstractModel):
             response = requests.get(url, headers=headers, timeout=15)
             resp_data = response.json()
             
-            # 3. Прив'язка до клієнта та створення запису
+            # 2. Пошук партнера та створення запису для статистики
             active_id = self.env.context.get('active_id')
             active_model = self.env.context.get('active_model')
-            
-            if resp_data.get('status') == 'success' and active_model == 'res.partner' and active_id:
+            partner = False
+
+            if active_model == 'res.partner' and active_id:
                 partner = self.env['res.partner'].browse(active_id)
-                
-                # Створюємо запис про дзвінок у таблиці Zadarma Calls
+            else:
+                # Якщо клікнули не з картки, шукаємо за номером
+                partner = self.env['res.partner'].search(['|', ('phone', 'ilike', clean_to), ('mobile', 'ilike', clean_to)], limit=1)
+
+            if resp_data.get('status') == 'success':
+                # Створюємо запис у моделі zadarma.call (це і є ваша статистика)
                 self.env['zadarma.call'].create({
-                    'name': f"Вихідний дзвінок: {clean_to}",
+                    'name': f"Вихідний дзвінок на {partner_phone}",
                     'caller_number': internal,
                     'called_number': clean_to,
-                    'partner_id': active_id,
+                    'partner_id': partner.id if partner else False,
                     'status': 'success',
-                    'user_id': self.env.user.id
+                    'start_time': fields.Datetime.now(),
                 })
                 
-                # Залишаємо нотатку в історії (Chatter) клієнта
-                partner.message_post(body=f"📞 Ініційовано успішний дзвінок через Zadarma на номер +48 {clean_to}")
-
+                # Записуємо в Chatter (історію) картки клієнта
+                if partner:
+                    partner.message_post(body=f"📞 <b>Zadarma:</b> Ініційовано вихідний дзвінок на номер {partner_phone}")
+            
             return resp_data
         except Exception as e:
-            _logger.error(f"Zadarma Callback Error: {str(e)}")
+            _logger.error(f"Zadarma Error: {str(e)}")
             return {'status': 'error', 'message': str(e)}
