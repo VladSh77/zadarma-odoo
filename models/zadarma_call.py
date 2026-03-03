@@ -7,8 +7,9 @@ class ZadarmaCall(models.Model):
     name = fields.Char(string='Call ID')
     caller_number = fields.Char(string='Caller Number')
     called_number = fields.Char(string='Called Number')
+    start_time = fields.Datetime(string='Start Time', default=fields.Datetime.now)
     duration = fields.Integer(string='Duration (sec)')
-    state = fields.Selection([
+    status = fields.Selection([
         ('success', 'Success'),
         ('failed', 'Failed')
     ], string='Status', default='success')
