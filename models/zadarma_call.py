@@ -34,22 +34,18 @@ class ZadarmaAPI(models.AbstractModel):
         api_key = company.zadarma_api_key or ''
         api_secret = company.zadarma_api_secret or ''
 
-        # 1. Сортування параметрів
         sorted_params = OrderedDict(sorted(params.items()))
         params_str = "&".join([f"{k}={v}" for k, v in sorted_params.items()])
         
-        # 2. Формула Zadarma: Method + Params + MD5(Params)
         md5_params = hashlib.md5(params_str.encode('utf-8')).hexdigest()
         data_to_sign = method + params_str + md5_params
         
-        # 3. ВАЖЛИВО: Використовуємо .hexdigest() замість .digest()
         hmac_h = hmac.new(
             api_secret.encode('utf-8'), 
             data_to_sign.encode('utf-8'), 
             hashlib.sha1
         ).hexdigest()
         
-        # 4. Кодуємо у Base64
         signature_base64 = base64.b64encode(hmac_h.encode('utf-8')).decode('utf-8')
         
         return {
@@ -64,9 +60,13 @@ class ZadarmaAPI(models.AbstractModel):
         if not internal_number:
             return {'status': 'error', 'message': 'SIP номер не вказаний'}
         
-        clean_phone = ''.join(filter(str.isdigit, partner_phone))
+        # ОСЬ ТУТ ЗМІНА: Залишаємо цифри та плюс (+)
+        clean_phone = ''.join(c for c in partner_phone if c.isdigit() or c == '+')
         method = "/v1/request/callback/"
         
+        # Важливо: Zadarma вимагає URL-кодування для плюса, 
+        # requests.get(params=...) робить це автоматично, 
+        # але для генерації підпису (signature) потрібен сирий вигляд
         params_dict = {
             'from': internal_number,
             'to': clean_phone
