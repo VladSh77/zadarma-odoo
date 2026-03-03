@@ -1,20 +1,38 @@
-# Zadarma Integration for Campscout
+# Zadarma Integration for Campscout (Odoo 17)
 
-Професійна інтеграція телефонії **Zadarma** з **Odoo 17** для екосистеми **Campscout**.
+![Odoo Version](https://img.shields.io/badge/Odoo-17.0-purple.svg)
+![License](https://img.shields.io/badge/License-LGPL--3-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 
-## Функціонал
-* 📞 **Click-to-Call**: Швидкий набір номера прямо з карток контактів.
-* 📜 **Call Logs**: Повна історія дзвінків з прив'язкою до клієнтів (Partner) та менеджерів (User).
-* ⚙️ **Centralized Settings**: Налаштування API ключів на рівні компанії.
+Професійний модуль для безшовної інтеграції хмарної АТС **Zadarma** з екосистемою **Campscout** на базі Odoo 17.
 
-## Технічні деталі
-* **Версія Odoo**: 17.0
-* **Базові моделі**: `res.partner`, `res.company`, `res.users`, `zadarma.call`.
+## 🚀 Основний функціонал
+- 📞 **Smart Click-to-Call**: Виклик одним натисканням. Система інтелектуально обробляє номери різних країн.
+- 🛠 **Prefix Routing Fix**: Автоматичне вирішення конфлікту дублювання міжнародних префіксів (усунення багу 4848 для Польщі).
+- 📊 **Partner Statistics**: Кожен виклик фіксується в базі даних Odoo та відображається у відповідній картці клієнта (вкладка "Дзвінки Zadarma").
+- 💬 **Chatter Logging**: Автоматичне створення нотаток в історії повідомлень (Log note) для прозорості роботи менеджерів.
 
-## Автор та розробка
-* **Компанія**: [Campscout](https://campscout.eu)
-* **Підтримка**: dev@campscout.eu
-* **Ліцензія**: LGPL-3
+## 🏗 Технічна архітектура та Schema
+Модуль побудований на принципах чистого коду (Clean Code) та розширюваності:
+- **res.partner**: Розширено реляційним полем `zadarma_call_ids` (One2many) для миттєвого доступу до історії з UI.
+- **zadarma.call**: Кастомна модель-журнал. Зберігає: `Call ID`, `Duration`, `Caller/Called numbers`, `Partner link`.
+- **zadarma.api**: Абстрактний сервіс (AbstractModel), що реалізує безпечну авторизацію `HMAC-SHA1` + `Base64` згідно з протоколом Zadarma.
+
+### 💡 Senior Dev Notes: Logic Handling
+Для забезпечення стабільності маршрутизації в коді реалізовано:
+1. **Normalization**: Очищення вхідних номерів від спецсимволів `+`, `-`, `()`.
+2. **Region Logic**: Перевірка довжини та префікса (11 цифр, старт з 48) для динамічного обрізання коду країни, що запобігає помилкам АТС при вихідних викликах.
+
+## 📈 Roadmap (План розвитку)
+- [ ] **Incoming Webhooks**: Обробка вхідних запитів (NOTIFY_END) для автоматичного оновлення тривалості дзвінка в базі.
+- [ ] **Lead Automation**: Автоматичне створення Ліда при вхідному дзвінку з невідомого номера.
+- [ ] **Recording Sync**: Інтеграція посилань на запис розмови безпосередньо в картку клієнта.
+- [ ] **Call Pop-up**: Спливаюче вікно з профілем клієнта під час вхідного виклику.
+
+## ⚙️ Налаштування
+1. **Залежності**: Необхідний встановлений модуль `mail`.
+2. **API**: Ключі вказуються в налаштуваннях Компанії.
+3. **Internal Numbers**: Внутрішній SIP (наприклад, 100, 101) має бути прописаний у картці Користувача.
 
 ---
-Developed with ❤️ for Campscout community.
+**Developed by Campscout Tech Team** [campscout.eu](https://campscout.eu) | dev@campscout.eu
