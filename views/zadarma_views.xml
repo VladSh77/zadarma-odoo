@@ -5,7 +5,7 @@
             <field name="name">zadarma.call.tree</field>
             <field name="model">zadarma.call</field>
             <field name="arch" type="xml">
-                <tree string="Дзвінки" create="0" edit="0" delete="0">
+                <tree string="Дзвінки" create="0" edit="0" delete="0" duplicate="0" decoration-info="direction == 'inbound'" decoration-success="direction == 'outbound'">
                     <field name="date_start"/>
                     <field name="phone_number"/>
                     <field name="direction"/>
@@ -13,7 +13,34 @@
                     <field name="status"/>
                     <field name="partner_id"/>
                     <field name="lead_id"/>
+                    <field name="recording_url" widget="url" text="Listen" invisible="not recording_url"/>
                 </tree>
+            </field>
+        </record>
+
+        <record id="view_zadarma_call_form" model="ir.ui.view">
+            <field name="name">zadarma.call.form</field>
+            <field name="model">zadarma.call</field>
+            <field name="arch" type="xml">
+                <form string="Деталі дзвінка" create="0" edit="0" delete="0" duplicate="0">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="date_start"/>
+                                <field name="phone_number"/>
+                                <field name="direction"/>
+                                <field name="user_id"/>
+                            </group>
+                            <group>
+                                <field name="duration" widget="float_time"/>
+                                <field name="status"/>
+                                <field name="partner_id"/>
+                                <field name="lead_id"/>
+                                <field name="recording_url" widget="url" invisible="not recording_url"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
             </field>
         </record>
 
