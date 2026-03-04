@@ -1,27 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_company_form_zadarma" model="ir.ui.view">
-        <name>res.company.form.zadarma</name>
-        <model>res.company</model>
-        <inherit_id ref="base.view_company_form"/>
-        <arch type="xml">
-            <xpath expr="//notebook" position="inside">
-                <page string="Zadarma API" name="zadarma_api">
-                    <group>
-                        <group string="Авторизація">
-                            <field name="zadarma_api_key"/>
-                            <field name="zadarma_api_secret" password="1"/>
-                            <field name="zadarma_sandbox"/>
+    <data>
+        <record id="view_company_form_zadarma_inherit" model="ir.ui.view">
+            <field name="name">res.company.form.zadarma.inherit</field>
+            <field name="model">res.company</field>
+            <field name="inherit_id" ref="base.view_company_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//notebook" position="inside">
+                    <page string="Zadarma Settings" name="zadarma_settings">
+                        <group>
+                            <field name="zadarma_api_key" password="True"/>
+                            <field name="zadarma_api_secret" password="True"/>
                         </group>
-                        <group string="Інфраструктура">
-                            <field name="zadarma_sip_mapping" placeholder="Наприклад: 101:2, 102:5"/>
-                            <p class="text-muted" colspan="2">
-                                Формат: SIP_ID:USER_ID. Використовується для призначення відповідального за Лід.
-                            </p>
-                        </group>
-                    </group>
-                </page>
-            </xpath>
-        </arch>
-    </record>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+    </data>
 </odoo>
