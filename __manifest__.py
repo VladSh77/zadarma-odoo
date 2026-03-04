@@ -7,7 +7,7 @@
         - Automated Lead creation for unknown numbers.
         - RODO/GDPR compliance logging.
         - Smart Business Logic for Partner/Lead linking.
-        - SIP Mapping and Security Locks.
+        - SIP Mapping on User level and Security Locks.
     """,
     'author': 'Campscout Dev Team',
     'website': 'https://campscout.eu',
@@ -17,10 +17,12 @@
         'crm',
     ],
     'data': [
+        'security/zadarma_security.xml',
         'security/ir.model.access.csv',
         'views/zadarma_views.xml',
         'views/res_company_views.xml',
         'views/partner_lead_views.xml',
+        'views/res_users_views.xml',
     ],
     'assets': {},
     'installable': True,
