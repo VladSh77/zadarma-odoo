@@ -16,7 +16,6 @@ class ResPartner(models.Model):
         user = self.env.user
         company = self.env.company
         
-        # Очищення номерів від зайвих символів
         def clean_phone(phone):
             if not phone: return False
             return ''.join(filter(str.isdigit, str(phone)))
@@ -27,7 +26,6 @@ class ResPartner(models.Model):
         target_phone = clean_phone(self.phone or self.mobile)
 
         if not (key and secret and sip and target_phone):
-            _logger.warning("Zadarma Call: Missing credentials. SIP: %s, Target: %s", sip, target_phone)
             return False
 
         api_method = "/v1/request/callback/"
@@ -36,16 +34,14 @@ class ResPartner(models.Model):
             'to': target_phone,
         }
         
-        # 1. Сортуємо параметри за алфавітом
+        # Сортування та формування MD5
         sorted_params = urlencode(sorted(params.items()))
-        
-        # 2. Формуємо рядок для підпису: метод + сортовані параметри + MD5 від сортованих параметрів
         md5_params = hashlib.md5(sorted_params.encode()).hexdigest()
         data_to_sign = f"{api_method}{sorted_params}{md5_params}"
         
-        # 3. HMAC-SHA1 підпис
-        h = hmac.new(secret.encode(), data_to_sign.encode(), hashlib.sha1)
-        signature = base64.b64encode(h.hexdigest().encode()).decode()
+        # Створення підпису за стандартом Zadarma
+        sign_hash = hmac.new(secret.encode(), data_to_sign.encode(), hashlib.sha1).hexdigest()
+        signature = base64.b64encode(sign_hash.encode()).decode()
 
         headers = {
             'Authorization': f"{key}:{signature}",
@@ -53,11 +49,11 @@ class ResPartner(models.Model):
         }
         
         try:
-            _logger.info("Zadarma Call: Sending request from %s to %s", sip, target_phone)
+            _logger.info("Zadarma Request: method=%s, params=%s", api_method, params)
             response = requests.post(f"https://api.zadarma.com{api_method}", data=params, headers=headers, timeout=10)
             res_data = response.json()
-            _logger.info("Zadarma Call Response: %s", res_data)
+            _logger.info("Zadarma Response: %s", res_data)
         except Exception as e:
-            _logger.error("Zadarma API Connection Failed: %s", str(e))
+            _logger.error("Zadarma API Error: %s", str(e))
         
         return True
