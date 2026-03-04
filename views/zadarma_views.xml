@@ -5,7 +5,7 @@
             <field name="name">zadarma.call.tree</field>
             <field name="model">zadarma.call</field>
             <field name="arch" type="xml">
-                <tree string="Дзвінки" create="0" edit="0" delete="0" decoration-info="direction == 'inbound'" decoration-muted="status == 'no_answer'">
+                <tree string="Дзвінки" create="0" edit="0" delete="0">
                     <field name="date_start"/>
                     <field name="phone_number"/>
                     <field name="direction"/>
