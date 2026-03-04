@@ -1,8 +1,12 @@
-from odoo import models, fields, api, _
-import requests
-import base64
+import logging
 import hashlib
 import hmac
+import base64
+import requests
+from urllib.parse import urlencode
+from odoo import models, fields, api, _
+
+_logger = logging.getLogger(__name__)
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
@@ -10,39 +14,40 @@ class ResPartner(models.Model):
     def action_zadarma_call(self):
         self.ensure_one()
         user = self.env.user
-        if not user.zadarma_internal_number:
-            return {
-                'type': 'ir.actions.client',
-                'tag': 'display_notification',
-                'params': {
-                    'title': _('Помилка'),
-                    'message': _('Будь ласка, вкажіть ваш SIP ID у налаштуваннях користувача.'),
-                    'type': 'danger',
-                }
-            }
-
         company = self.env.company
+        
+        target_phone = self.phone or self.mobile
         key = company.zadarma_key
         secret = company.zadarma_secret
-        
-        if not key or not secret:
+        sip = user.zadarma_internal_number
+
+        if not (key and secret and sip and target_phone):
             return False
 
-        target_phone = self.phone or self.mobile
-        if not target_phone:
-            return False
-
-        # API Zadarma: Callback
-        api_url = "/v1/request/callback/"
+        api_method = "/v1/request/callback/"
         params = {
-            'from': user.zadarma_internal_number,
-            'to': target_phone,
+            'from': sip,
+            'to': target_phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', ''),
         }
         
-        # Спрощена авторизація для прикладу (буде доопрацьована в разі помилок підпису)
-        # Наразі ми просто ініціюємо логіку виклику
-        _logger = self.env['logging.getLogger'](__name__)
-        _logger.info("Initiating Zadarma call from %s to %s", user.zadarma_internal_number, target_phone)
+        # Сортування параметрів для підпису
+        sorted_params = urlencode(sorted(params.items()))
+        data_to_sign = f"{api_method}{sorted_params}{hashlib.md5(sorted_params.encode()).hexdigest()}"
         
-        # Тут буде реальний POST запит до API у наступному кроці
+        signature = base64.b64encode(
+            hmac.new(secret.encode(), data_to_sign.encode(), hashlib.sha1).hexdigest().encode()
+        ).decode()
+
+        headers = {'Authorization': f"{key}:{signature}"}
+        
+        try:
+            response = requests.post(f"https://api.zadarma.com{api_method}", data=params, headers=headers, timeout=10)
+            res_data = response.json()
+            if res_data.get('status') == 'success':
+                _logger.info("Zadarma Call Success: %s", res_data)
+            else:
+                _logger.error("Zadarma Call Error: %s", res_data)
+        except Exception as e:
+            _logger.error("Zadarma API Connection Failed: %s", str(e))
+        
         return True
