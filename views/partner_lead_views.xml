@@ -7,7 +7,7 @@
             <field name="inherit_id" ref="base.view_partner_form"/>
             <field name="arch" type="xml">
                 <div name="button_box" position="inside">
-                    <button name="action_view_zadarma_calls" type="object" class="oe_stat_button" icon="fa-phone">
+                    <button name="action_view_zadarma_calls" type="object" class="oe_stat_button" icon="fa-phone" title="Дзвінки Zadarma">
                         <field name="zadarma_call_count" widget="statinfo" string="Дзвінки"/>
                     </button>
                 </div>
@@ -20,7 +20,7 @@
             <field name="inherit_id" ref="crm.crm_lead_view_form"/>
             <field name="arch" type="xml">
                 <div name="button_box" position="inside">
-                    <button name="action_view_zadarma_calls" type="object" class="oe_stat_button" icon="fa-phone">
+                    <button name="action_view_zadarma_calls" type="object" class="oe_stat_button" icon="fa-phone" title="Дзвінки Zadarma">
                         <field name="zadarma_call_count" widget="statinfo" string="Дзвінки"/>
                     </button>
                 </div>
