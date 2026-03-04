@@ -17,8 +17,8 @@ class ResPartner(models.Model):
         company = self.env.company
         
         target_phone = self.phone or self.mobile
-        key = company.zadarma_key
-        secret = company.zadarma_secret
+        key = company.zadarma_api_key
+        secret = company.zadarma_api_secret
         sip = user.zadarma_internal_number
 
         if not (key and secret and sip and target_phone):
