@@ -1,6 +1,6 @@
 {
     'name': 'Zadarma Odoo Integration (Campscout)',
-    'version': '1.2.3',
+    'version': '1.2.4',
     'category': 'CRM',
     'summary': 'Hybrid Zadarma Integration: Lead Automation & SIP Mapping',
     'author': 'VladSh77',
@@ -11,7 +11,7 @@
         'views/zadarma_views.xml',
         'views/res_company_views.xml',
         'views/res_users_views.xml',
-        # 'views/partner_lead_views.xml',  <-- Тимчасово приховано
+        'views/partner_lead_views.xml',
     ],
     'installable': True,
     'application': True,
