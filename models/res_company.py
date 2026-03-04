@@ -1,19 +1,14 @@
-from odoo import fields, models
-
+from odoo import models, fields
 
 class ResCompany(models.Model):
-    _inherit = "res.company"
+    _inherit = 'res.company'
 
-    zadarma_api_key = fields.Char(
-        string="Zadarma API Key", help="API key from your Zadarma personal account"
-    )
-    zadarma_api_secret = fields.Char(
-        string="Zadarma API Secret",
-        password=True,
-        help="API secret from your Zadarma personal account (will be hidden)",
-    )
-    zadarma_sandbox = fields.Boolean(
-        string="Use Sandbox",
-        default=False,
-        help="Use Zadarma sandbox environment for testing (https://api-sandbox.zadarma.com)",
+    zadarma_api_key = fields.Char(string='Zadarma API Key')
+    zadarma_api_secret = fields.Char(string='Zadarma API Secret', password=True)
+    zadarma_sandbox = fields.Boolean(string='Sandbox Mode', default=False)
+    
+    # SIP Mapping: відповідність внутрішніх номерів (101) ID користувачів Odoo
+    zadarma_sip_mapping = fields.Text(
+        string='SIP Mapping', 
+        help="Format: SIP:User_ID (e.g., 101:2, 102:5). Used to assign leads to users."
     )

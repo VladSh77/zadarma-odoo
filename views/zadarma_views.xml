@@ -1,19 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="action_zadarma_call_list" model="ir.actions.act_window">
-        <field name="name">Zadarma Calls</field>
-        <field name="res_model">zadarma.call</field>
-        <field name="view_mode">list,form</field>
+    <record id="view_zadarma_call_tree" model="ir.ui.view">
+        <name>zadarma.call.tree</name>
+        <model>zadarma.call</model>
+        <arch type="xml">
+            <tree string="Calls Statistics" create="0" delete="0" edit="0" duplicate="0" sample="1">
+                <field name="date_start" string="Дата" widget="datetime"/>
+                <field name="direction" string="Тип" widget="badge" decoration-info="direction == 'inbound'" decoration-success="direction == 'outbound'"/>
+                <field name="phone_number" string="Номер"/>
+                <field name="duration" string="Тривалість (сек)" sum="Total Duration"/>
+                <field name="status" string="Статус" widget="badge" decoration-success="status == 'answered'" decoration-danger="status == 'no_answer'"/>
+                <field name="partner_id" string="Клієнт"/>
+                <field name="lead_id" string="Лід"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </tree>
+        </arch>
     </record>
 
-    <menuitem id="menu_zadarma_root" 
-              name="Zadarma" 
-              web_icon="zadarma_odoo,static/description/icon.png"
-              sequence="10"/>
+    <record id="view_zadarma_call_form" model="ir.ui.view">
+        <name>zadarma.call.form</name>
+        <model>zadarma.call</model>
+        <arch type="xml">
+            <form string="Call Detail" create="0" delete="0" edit="0">
+                <sheet>
+                    <group>
+                        <group string="Комунікація">
+                            <field name="phone_number"/>
+                            <field name="partner_id" widget="res_partner_many2one"/>
+                            <field name="lead_id"/>
+                            <field name="recording_url" widget="url" string="Запис розмови" invisible="not recording_url"/>
+                        </group>
+                        <group string="Технічні дані">
+                            <field name="date_start"/>
+                            <field name="duration"/>
+                            <field name="direction"/>
+                            <field name="status"/>
+                            <field name="call_id_external"/>
+                        </group>
+                    </group>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids"/>
+                        <field name="activity_ids"/>
+                        <field name="message_ids"/>
+                    </div>
+                </sheet>
+            </form>
+        </arch>
+    </record>
 
-    <menuitem id="menu_zadarma_calls" 
-              name="Calls" 
-              parent="menu_zadarma_root" 
-              action="action_zadarma_call_list" 
-              sequence="10"/>
+    <record id="action_zadarma_calls" model="ir.actions.act_window">
+        <name>Calls History</name>
+        <res_model>zadarma.call</res_model>
+        <view_mode>tree,form</view_mode>
+        <help type="html">
+            <p class="o_view_nocontent_smiling_face">Історія дзвінків порожня</p>
+            <p>Дзвінки з'являться тут автоматично після налаштування Webhook.</p>
+        </help>
+    </record>
+
+    <menuitem id="menu_zadarma_root" name="Zadarma" sequence="10" web_icon="zadarma_odoo,static/description/icon.png"/>
+    <menuitem id="menu_zadarma_calls" name="Calls" parent="menu_zadarma_root" action="action_zadarma_calls" sequence="10"/>
 </odoo>

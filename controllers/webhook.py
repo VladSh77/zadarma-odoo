@@ -1,56 +1,71 @@
+import hashlib
+import hmac
+import logging
 from odoo import http
 from odoo.http import request
-import logging
 
 _logger = logging.getLogger(__name__)
 
 class ZadarmaWebhook(http.Controller):
-    @http.route('/zadarma/webhook', type='http', auth='public', methods=['POST', 'GET'], csrf=False)
-    def zadarma_webhook(self, **post):
-        if request.httprequest.method == 'GET':
-            if 'zd_echo' in post: return post.get('zd_echo')
-            return "Zadarma Webhook is active!"
-
-        event = post.get('event')
-        if event in ['NOTIFY_END', 'NOTIFY_OUT_END', 'NOTIFY_RECORD']:
-            caller_id = post.get('caller_id', '')
-            destination = post.get('destination', '') or post.get('called_did', '')
+    @http.route('/zadarma/webhook', type='json', auth='public', methods=['POST'], csrf=False)
+    def handle_webhook(self):
+        # 1. Миттєва відповідь для запобігання Call Loop
+        data = request.jsonrequest
+        event = data.get('event')
+        
+        # 2. Перевірка підпису (Signature) - за потреби додати логіку HMAC тут
+        
+        company = request.env['res.company'].sudo().search([], limit=1)
+        
+        if event == 'NOTIFY_START':
+            self._handle_start(data, company)
+        elif event == 'NOTIFY_END':
+            self._handle_end(data, company)
             
-            # Ігноруємо технічні дзвінки АТС
-            if caller_id == '0' or destination == '100':
-                return "OK"
+        return {'status': 'success'}
 
-            call_id = post.get('pbx_call_id')
-            duration = post.get('duration', 0)
-            disposition = post.get('disposition', '')
-            call_type = 'outbound' if event == 'NOTIFY_OUT_END' else 'inbound'
-            
-            # Пошук за останніми 9 цифрами (найнадійніше для CRM)
-            phone_to_search = ''.join(filter(str.isdigit, destination if call_type == 'outbound' else caller_id))
-            partner = False
-            if len(phone_to_search) >= 9:
-                short_phone = phone_to_search[-9:]
-                partner = request.env['res.partner'].sudo().search([
-                    '|', ('phone', 'ilike', short_phone), ('mobile', 'ilike', short_phone)
-                ], limit=1)
+    def _handle_start(self, data, company):
+        number = data.get('caller_id') or data.get('called_number')
+        # Smart Prefix: прибираємо дублі коду країни
+        if number.startswith('+4848'): number = number.replace('+4848', '+48', 1)
+        
+        # Пошук: Партнер -> Лід
+        partner = request.env['res.partner'].sudo().search([('phone', 'ilike', number)], limit=1)
+        lead = False
+        if not partner:
+            lead = request.env['crm.lead'].sudo().search([('phone_mobile', 'ilike', number)], limit=1)
+            if not lead:
+                # Створення нового Ліда (ТЗ 1.2)
+                lead = request.env['crm.lead'].sudo().create({
+                    'name': f'Вхідний дзвінок: {number}',
+                    'phone': number,
+                    'description': 'Автоматично створено через Zadarma API',
+                })
 
-            vals = {
-                'name': f"{call_type.capitalize()} call: {caller_id} -> {destination}",
-                'call_id': call_id,
-                'caller_number': caller_id,
-                'called_number': destination,
-                'duration': int(duration),
-                'status': 'success' if disposition == 'answered' else 'failed',
-                'call_type': call_type,
-                'partner_id': partner.id if partner else False,
-            }
+        # RODO Logic для +48
+        rodo_msg = ""
+        if number.startswith('+48'):
+            rodo_msg = " [RODO Warning Played]"
 
-            existing = request.env['zadarma.call'].sudo().search([('call_id', '=', call_id)], limit=1)
-            if existing:
-                existing.write(vals)
-            else:
-                request.env['zadarma.call'].sudo().create(vals)
-                if partner:
-                    partner.sudo().message_post(body=f"📞 <b>Дзвінок:</b> {vals['name']}<br/>Тривалість: {duration} сек.")
+        # Створення запису про дзвінок
+        request.env['zadarma.call'].sudo().create({
+            'call_id_external': data.get('call_id'),
+            'date_start': fields.Datetime.now(),
+            'direction': 'inbound' if data.get('event') == 'NOTIFY_START' else 'outbound',
+            'phone_number': number,
+            'partner_id': partner.id if partner else False,
+            'lead_id': lead.id if lead else False,
+        })
+        
+        # Логування в Chatter (Без HTML багів)
+        msg = f"📞 Дзвінок з номера {number}{rodo_msg}"
+        if partner: partner.message_post(body=msg)
+        if lead: lead.message_post(body=msg)
 
-        return "OK"
+    def _handle_end(self, data, company):
+        call = request.env['zadarma.call'].sudo().search([('call_id_external', '=', data.get('call_id'))], limit=1)
+        if call:
+            call.write({
+                'duration': data.get('duration'),
+                'status': 'answered' if int(data.get('duration')) > 0 else 'no_answer',
+            })
