@@ -13,12 +13,7 @@ class ZadarmaCall(models.Model):
         ('outbound', 'Вихідний')
     ], string='Тип')
     duration = fields.Integer(string='Тривалість (сек)')
-    status = fields.Selection([
-        ('success', 'Success'),
-        ('no_answer', 'No Answer'),
-        ('busy', 'Busy'),
-        ('cancel', 'Cancel'),
-    ], string='Статус')
+    status = fields.Char(string='Статус')
     partner_id = fields.Many2one('res.partner', string='Контакт')
     lead_id = fields.Many2one('crm.lead', string='Лід')
     user_id = fields.Many2one('res.users', string='Відповідальний')
