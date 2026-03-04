@@ -22,38 +22,42 @@ class ResPartner(models.Model):
 
         key = company.zadarma_api_key
         secret = company.zadarma_api_secret
-        # Отримуємо номер лінії (100, 101 або 102)
-        internal_number = clean_phone(user.zadarma_internal_number)
-        target_phone = clean_phone(self.phone or self.mobile)
+        internal = clean_phone(user.zadarma_internal_number)
+        target = clean_phone(self.phone or self.mobile)
 
-        if not (key and secret and internal_number and target_phone):
+        if not (key and secret and internal and target):
             return False
 
-        # Для Zadarma Callback 'from' має бути повним логіном лінії (наприклад 402022-100)
-        # Оскільки префікс 402022 спільний, ми можемо додати його тут
-        sip_login = f"402022{internal_number}"
+        # ПРАВИЛЬНИЙ ФОРМАТ SIP: додаємо дефіс, як у вашому кабінеті
+        sip_login = f"402022-{internal}"
 
         api_method = "/v1/request/callback/"
         params = {
             'from': sip_login,
-            'to': target_phone,
+            'to': target,
         }
         
+        # Сортування параметрів
         sorted_dict = dict(sorted(params.items()))
         query_string = urlencode(sorted_dict)
+        
+        # MD5 від query_string
         md5_params = hashlib.md5(query_string.encode('utf-8')).hexdigest()
+        
+        # Рядок для підпису
         data_to_sign = f"{api_method}{query_string}{md5_params}"
         
-        # Використовуємо .digest() для отримання бінарного хешу (вимога Zadarma)
-        sign_hash = hmac.new(secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1).digest()
-        signature = base64.b64encode(sign_hash).decode('utf-8')
+        # HMAC-SHA1 -> HEX (lowercase) -> Base64
+        h = hmac.new(secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1)
+        signature = base64.b64encode(h.hexdigest().encode('utf-8')).decode('utf-8')
 
         headers = {'Authorization': f"{key}:{signature}"}
         
         try:
+            _logger.info("Zadarma API Request: %s Header: %s", params, headers['Authorization'])
             response = requests.post(f"https://api.zadarma.com{api_method}", data=params, headers=headers, timeout=10)
-            _logger.info("Zadarma Call: From %s To %s Result: %s", sip_login, target_phone, response.json())
+            _logger.info("Zadarma API Final Result: %s", response.json())
         except Exception as e:
-            _logger.error("Zadarma API Error: %s", str(e))
+            _logger.error("Zadarma API Exception: %s", str(e))
         
         return True
