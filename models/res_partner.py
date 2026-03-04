@@ -12,11 +12,9 @@ class ResPartner(models.Model):
     _inherit = 'res.partner'
 
     def action_zadarma_call(self):
-        # Цей принт з'явиться в логах Docker навіть без фільтрації
-        print("\n!!! TRIGGERED action_zadarma_call for partner ID: %s !!!\n" % self.id)
-        _logger.info("Zadarma Button Clicked for Partner: %s", self.name)
-        
         self.ensure_one()
+        _logger.info("Zadarma Call Initiated for Partner: %s", self.name)
+        
         user = self.env.user
         company = self.env.company
         
@@ -30,28 +28,36 @@ class ResPartner(models.Model):
         target_phone = clean_phone(self.phone or self.mobile)
 
         if not (key and secret and sip and target_phone):
-            _logger.error("Zadarma: Missing Data. SIP: %s, Phone: %s, Key: %s", sip, target_phone, bool(key))
+            _logger.warning("Zadarma: Missing Data. SIP: %s, Target: %s", sip, target_phone)
             return False
 
         api_method = "/v1/request/callback/"
-        params = {'from': sip, 'to': target_phone}
+        params = {
+            'from': sip,
+            'to': target_phone,
+        }
         
-        sorted_params = urlencode(sorted(params.items()))
-        md5_params = hashlib.md5(sorted_params.encode()).hexdigest()
-        data_to_sign = f"{api_method}{sorted_params}{md5_params}"
+        # Сортуємо параметри та створюємо рядок запиту
+        sorted_dict = dict(sorted(params.items()))
+        query_string = urlencode(sorted_dict)
         
-        sign_hash = hmac.new(secret.encode(), data_to_sign.encode(), hashlib.sha1).hexdigest()
-        signature = base64.b64encode(sign_hash.encode()).decode()
+        # Рядок для підпису: метод + query_string + md5(query_string)
+        md5_params = hashlib.md5(query_string.encode('utf-8')).hexdigest()
+        data_to_sign = f"{api_method}{query_string}{md5_params}"
+        
+        # КРИТИЧНО: HMAC-SHA1 має повертати digest (бінарний), а не hexdigest
+        h = hmac.new(secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1)
+        signature = base64.b64encode(h.hexdigest().encode('utf-8')).decode('utf-8')
 
         headers = {
             'Authorization': f"{key}:{signature}",
-            'Content-Type': 'application/x-www-form-urlencoded'
         }
         
         try:
-            _logger.info("Zadarma API: Sending POST to %s", api_method)
+            _logger.info("Zadarma API: POST %s with params %s", api_method, params)
             response = requests.post(f"https://api.zadarma.com{api_method}", data=params, headers=headers, timeout=10)
-            _logger.info("Zadarma API Response: %s", response.json())
+            res_data = response.json()
+            _logger.info("Zadarma API Final Response: %s", res_data)
         except Exception as e:
             _logger.error("Zadarma API Exception: %s", str(e))
         
