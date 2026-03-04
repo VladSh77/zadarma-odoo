@@ -3,17 +3,18 @@ from odoo import models, fields, api
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
-    zadarma_call_count = fields.Integer(compute='_compute_zadarma_call_count', string='Zadarma Calls')
+    zadarma_call_ids = fields.One2many('zadarma.call', 'partner_id', string='Zadarma Calls')
+    zadarma_call_count = fields.Integer(compute='_compute_zadarma_call_count')
 
     def _compute_zadarma_call_count(self):
-        for partner in self:
-            partner.zadarma_call_count = self.env['zadarma.call'].search_count([('partner_id', '=', partner.id)])
+        for record in self:
+            record.zadarma_call_count = len(record.zadarma_call_ids)
 
     def action_view_zadarma_calls(self):
         self.ensure_one()
         return {
-            'name': 'Zadarma Calls',
             'type': 'ir.actions.act_window',
+            'name': 'Дзвінки Zadarma',
             'res_model': 'zadarma.call',
             'view_mode': 'tree,form',
             'domain': [('partner_id', '=', self.id)],
@@ -23,17 +24,18 @@ class ResPartner(models.Model):
 class CrmLead(models.Model):
     _inherit = 'crm.lead'
 
-    zadarma_call_count = fields.Integer(compute='_compute_zadarma_call_count', string='Zadarma Calls')
+    zadarma_call_ids = fields.One2many('zadarma.call', 'lead_id', string='Zadarma Calls')
+    zadarma_call_count = fields.Integer(compute='_compute_zadarma_call_count')
 
     def _compute_zadarma_call_count(self):
-        for lead in self:
-            lead.zadarma_call_count = self.env['zadarma.call'].search_count([('lead_id', '=', lead.id)])
+        for record in self:
+            record.zadarma_call_count = len(record.zadarma_call_ids)
 
     def action_view_zadarma_calls(self):
         self.ensure_one()
         return {
-            'name': 'Zadarma Calls',
             'type': 'ir.actions.act_window',
+            'name': 'Дзвінки Zadarma',
             'res_model': 'zadarma.call',
             'view_mode': 'tree,form',
             'domain': [('lead_id', '=', self.id)],
