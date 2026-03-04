@@ -19,7 +19,7 @@ class ResPartner(models.Model):
         key = company.zadarma_api_key
         secret = company.zadarma_api_secret
         
-        # Використовуємо значення з налаштувань Odoo як є (має бути 402022-100)
+        # Беремо значення з Odoo (має бути 402022-100)
         sip_id = str(user.zadarma_internal_number or '').strip()
         target = ''.join(filter(str.isdigit, str(self.phone or self.mobile)))
 
@@ -43,7 +43,7 @@ class ResPartner(models.Model):
         headers = {'Authorization': f"{key}:{signature}"}
         
         try:
-            # ВИКОРИСТОВУЄМО GET ЗАПИТ, ОСКІЛЬКИ ВІН ПРАЦЮЄ БЕЗ ПОМИЛОК
+            # Фіксуємо GET-запит, який гарантовано працює
             url = f"https://api.zadarma.com{api_method}?{query_string}"
             _logger.info("Zadarma API Call (GET): %s", url)
             response = requests.get(url, headers=headers, timeout=10)
