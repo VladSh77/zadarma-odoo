@@ -13,7 +13,7 @@
                     <field name="status"/>
                     <field name="partner_id"/>
                     <field name="lead_id"/>
-                    <field name="recording_url" widget="url" text="Listen" invisible="not recording_url"/>
+                    <field name="recording_url" widget="url" text="Слухати"/>
                 </tree>
             </field>
         </record>
@@ -25,18 +25,18 @@
                 <form string="Деталі дзвінка" create="0" edit="0" delete="0" duplicate="0">
                     <sheet>
                         <group>
-                            <group>
+                            <group string="Основна інформація">
                                 <field name="date_start"/>
                                 <field name="phone_number"/>
                                 <field name="direction"/>
-                                <field name="user_id"/>
-                            </group>
-                            <group>
                                 <field name="duration" widget="float_time"/>
                                 <field name="status"/>
+                            </group>
+                            <group string="Зв'язки та Запис">
                                 <field name="partner_id"/>
                                 <field name="lead_id"/>
-                                <field name="recording_url" widget="url" invisible="not recording_url"/>
+                                <field name="user_id"/>
+                                <field name="recording_url" widget="url" text="Відкрити запис розмови"/>
                             </group>
                         </group>
                     </sheet>
@@ -48,6 +48,7 @@
             <field name="name">Дзвінки Zadarma</field>
             <field name="res_model">zadarma.call</field>
             <field name="view_mode">tree,form</field>
+            <field name="view_id" ref="view_zadarma_call_tree"/>
         </record>
 
         <menuitem id="menu_zadarma_root" name="Zadarma" sequence="10" web_icon="zadarma_odoo,static/description/icon.png"/>
