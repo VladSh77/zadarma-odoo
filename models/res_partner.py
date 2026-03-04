@@ -16,24 +16,24 @@ class ResPartner(models.Model):
         user = self.env.user
         company = self.env.company
         
-        def clean_phone(phone):
+        # Очищуємо лише номер клієнта (тільки цифри)
+        def clean_target(phone):
             if not phone: return False
             return ''.join(filter(str.isdigit, str(phone)))
 
         key = company.zadarma_api_key
         secret = company.zadarma_api_secret
-        internal = clean_phone(user.zadarma_internal_number)
-        target = clean_phone(self.phone or self.mobile)
+        # Для SIP ID залишаємо дефіс, як у кабінеті (напр. 402022-100)
+        sip_id = str(user.zadarma_internal_number or '').strip()
+        target = clean_target(self.phone or self.mobile)
 
-        if not (key and secret and internal and target):
+        if not (key and secret and sip_id and target):
+            _logger.warning("Zadarma: Missing data. SIP: %s, Target: %s", sip_id, target)
             return False
-
-        # Формуємо ПОВНИЙ SIP ID, як він виглядає в кабінеті Zadarma
-        sip_full = f"402022-{internal}"
 
         api_method = "/v1/request/callback/"
         params = {
-            'from': sip_full,
+            'from': sip_id,
             'to': target,
         }
         
@@ -41,26 +41,26 @@ class ResPartner(models.Model):
         sorted_dict = dict(sorted(params.items()))
         query_string = urlencode(sorted_dict)
         
-        # 2. Формуємо MD5 від query_string
+        # 2. MD5 від query_string (lowercase hex)
         md5_params = hashlib.md5(query_string.encode('utf-8')).hexdigest()
         
-        # 3. Рядок для підпису: METHOD + QUERY + MD5(QUERY)
+        # 3. Рядок для підпису за офіційним SDK Python
         data_to_sign = f"{api_method}{query_string}{md5_params}"
         
-        # 4. HMAC-SHA1: беремо HEX-результат (hexdigest)
+        # 4. HMAC-SHA1 hexdigest
         h = hmac.new(secret.encode('utf-8'), data_to_sign.encode('utf-8'), hashlib.sha1)
         signature_hex = h.hexdigest()
         
-        # 5. Base64 від HEX-результату
+        # 5. Base64 від отриманого HEX-рядка
         signature = base64.b64encode(signature_hex.encode('utf-8')).decode('utf-8')
 
         headers = {'Authorization': f"{key}:{signature}"}
         
         try:
-            _logger.info("Zadarma Final Attempt: From %s To %s", sip_full, target)
+            _logger.info("Zadarma API: Calling From %s To %s", sip_id, target)
             response = requests.post(f"https://api.zadarma.com{api_method}", data=params, headers=headers, timeout=10)
-            _logger.info("Zadarma Response: %s", response.json())
+            _logger.info("Zadarma API Response: %s", response.json())
         except Exception as e:
-            _logger.error("Zadarma API Error: %s", str(e))
+            _logger.error("Zadarma API Connection Error: %s", str(e))
         
         return True
