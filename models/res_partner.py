@@ -43,7 +43,7 @@ class ResPartner(models.Model):
         headers = {'Authorization': f"{key}:{signature}"}
         
         try:
-            # 3. ВИКОРИСТОВУЄМО GET ЗАПИТ з додаванням query_string до URL!
+            # ВИКОРИСТОВУЄМО GET ЗАПИТ, ОСКІЛЬКИ ВІН ПРАЦЮЄ БЕЗ ПОМИЛОК
             url = f"https://api.zadarma.com{api_method}?{query_string}"
             _logger.info("Zadarma API Call (GET): %s", url)
             response = requests.get(url, headers=headers, timeout=10)
