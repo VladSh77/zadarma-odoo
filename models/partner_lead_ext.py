@@ -1,5 +1,6 @@
 from odoo import models, fields, api
 
+
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
@@ -8,7 +9,7 @@ class ResPartner(models.Model):
 
     def _compute_zadarma_call_count(self):
         for record in self:
-            record.zadarma_call_count = len(record.zadarma_call_ids)
+            record.zadarma_call_count = self.env['zadarma.call'].search_count([('partner_id', '=', record.id)])
 
     def action_view_zadarma_calls(self):
         self.ensure_one()
@@ -21,6 +22,7 @@ class ResPartner(models.Model):
             'context': {'default_partner_id': self.id},
         }
 
+
 class CrmLead(models.Model):
     _inherit = 'crm.lead'
 
@@ -29,7 +31,7 @@ class CrmLead(models.Model):
 
     def _compute_zadarma_call_count(self):
         for record in self:
-            record.zadarma_call_count = len(record.zadarma_call_ids)
+            record.zadarma_call_count = self.env['zadarma.call'].search_count([('lead_id', '=', record.id)])
 
     def action_view_zadarma_calls(self):
         self.ensure_one()
