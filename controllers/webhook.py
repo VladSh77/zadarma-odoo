@@ -214,7 +214,22 @@ class ZadarmaWebhook(http.Controller):
         if not call:
             _logger.warning("Zadarma NOTIFY_RECORD: call not found for pbx_call_id=%s", pbx_call_id)
             return
-        recording_url = self._zadarma_get_recording_url(call_id_with_rec, pbx_call_id)
-        if recording_url:
-            call.sudo().write({'recording_url': recording_url})
-            _logger.info("Zadarma: Saved recording URL for call %s", pbx_call_id)
+        temp_url = self._zadarma_get_recording_url(call_id_with_rec, pbx_call_id)
+        if not temp_url:
+            return
+        try:
+            resp = requests.get(temp_url, timeout=60)
+            resp.raise_for_status()
+            filename = f'call_{pbx_call_id}.mp3'
+            attachment = request.env['ir.attachment'].sudo().create({
+                'name': filename,
+                'datas': base64.b64encode(resp.content).decode(),
+                'res_model': 'zadarma.call',
+                'res_id': call.id,
+                'mimetype': 'audio/mpeg',
+            })
+            call.sudo().write({'recording_url': f'/web/content/{attachment.id}?download=true'})
+            _logger.info("Zadarma: Downloaded and saved recording for call %s (%d bytes)", pbx_call_id, len(resp.content))
+        except Exception as e:
+            _logger.error("Zadarma: Failed to download recording for %s: %s", pbx_call_id, e)
+            call.sudo().write({'recording_url': temp_url})
