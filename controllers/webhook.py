@@ -35,12 +35,12 @@ class ZadarmaWebhook(http.Controller):
         return re.sub(r'\D', '', str(phone))
 
     def _process_call_end(self, data):
-        required_fields = ('call_id', 'call_start', 'duration')
-        missing = [f for f in required_fields if not data.get(f)]
-        if missing:
+        # Zadarma sends call_id for answered calls, pbx_call_id for missed/cancelled calls
+        call_id = data.get('call_id') or data.get('pbx_call_id')
+        if not call_id or not data.get('call_start'):
             _logger.warning(
-                "Zadarma webhook: missing required fields %s, skipping. Full payload: %s",
-                missing, dict(data),
+                "Zadarma webhook: missing call_id/pbx_call_id or call_start, skipping. Full payload: %s",
+                dict(data),
             )
             return
 
@@ -86,7 +86,7 @@ class ZadarmaWebhook(http.Controller):
         # 3. Save call record
         duration = int(data.get('duration', 0))
         call = env['zadarma.call'].sudo().create({
-            'call_id': data.get('call_id'),
+            'call_id': call_id,
             'date_start': data.get('call_start'),
             'phone_number': phone,
             'direction': direction,
