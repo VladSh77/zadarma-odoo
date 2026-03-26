@@ -174,10 +174,14 @@ class ZadarmaWebhook(http.Controller):
         self._post_chatter(lead, partner, 'outbound', phone, duration, data.get('disposition'), user=user)
 
     def _zadarma_get_recording_url(self, call_id_with_rec, pbx_call_id):
-        company = request.env['res.company'].sudo().search([], limit=1)
+        company = request.env['res.company'].sudo().search([('zadarma_api_key', '!=', False)], limit=1)
+        if not company:
+            _logger.warning("Zadarma: no company with API credentials found")
+            return None
         key = company.zadarma_api_key
         secret = company.zadarma_api_secret
         if not key or not secret:
+            _logger.warning("Zadarma: API key/secret missing on company %s", company.name)
             return None
         method = '/v1/pbx/record/request/'
         params = {'call_id': call_id_with_rec, 'pbx_call_id': pbx_call_id}
