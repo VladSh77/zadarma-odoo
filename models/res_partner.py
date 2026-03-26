@@ -21,7 +21,8 @@ class ResPartner(models.Model):
         key = company.zadarma_api_key
         secret = company.zadarma_api_secret
         sip_id = str(user.zadarma_internal_number or '').strip()
-        target = ''.join(filter(str.isdigit, str(self.phone or self.mobile)))
+        digits = ''.join(filter(str.isdigit, str(self.phone or self.mobile)))
+        target = '+' + digits
 
         _logger.info("Zadarma call: SIP='%s', Target='%s'", sip_id, target)
 
