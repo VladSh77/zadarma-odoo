@@ -4,6 +4,7 @@ import hmac
 import base64
 import logging
 import re
+import time
 from urllib.parse import urlencode
 from datetime import datetime, timedelta
 
@@ -39,13 +40,20 @@ class ZadarmaImport(models.TransientModel):
         sig = base64.b64encode(
             hmac.new(secret.encode(), sign_str.encode(), hashlib.sha1).hexdigest().encode()
         ).decode()
-        response = requests.get(
-            f'https://api.zadarma.com{method}?{qs}',
-            headers={'Authorization': f'{key}:{sig}'},
-            timeout=15,
-        )
-        response.raise_for_status()
-        return response.json()
+        for attempt in range(3):
+            response = requests.get(
+                f'https://api.zadarma.com{method}?{qs}',
+                headers={'Authorization': f'{key}:{sig}'},
+                timeout=15,
+            )
+            if response.status_code == 429:
+                wait = 3 * (attempt + 1)
+                _logger.warning("Zadarma API rate limit (429), waiting %ss...", wait)
+                time.sleep(wait)
+                continue
+            response.raise_for_status()
+            return response.json()
+        raise UserError('Zadarma API rate limit перевищено. Спробуйте через кілька хвилин.')
 
     def _normalize_phone(self, phone):
         if not phone:
@@ -145,6 +153,7 @@ class ZadarmaImport(models.TransientModel):
             if len(stats) < limit:
                 break
             skip += limit
+            time.sleep(1)  # avoid rate limiting between pages
 
         self.result_message = f"Імпортовано: {imported} дзвінків. Вже існували: {skipped}."
         return {
