@@ -12,6 +12,7 @@
         'views/res_company_views.xml',
         'views/res_users_views.xml',
         'views/partner_lead_views.xml',
+        'views/zadarma_import_views.xml',
     ],
     'installable': True,
     'application': True,
