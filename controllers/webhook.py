@@ -4,6 +4,11 @@ from odoo.http import request
 from markupsafe import Markup
 import logging
 import re
+import hashlib
+import hmac
+import base64
+import requests
+from urllib.parse import urlencode
 
 _logger = logging.getLogger(__name__)
 
@@ -26,6 +31,8 @@ class ZadarmaWebhook(http.Controller):
                 self._process_call_end(params)
             elif event == 'NOTIFY_OUT_END' and params.get('calltype') == 'callback_leg2':
                 self._process_outbound_call_end(params)
+            elif event == 'NOTIFY_RECORD':
+                self._process_notify_record(params)
         except Exception as e:
             _logger.error("Zadarma webhook processing error: %s", str(e))
 
@@ -165,3 +172,44 @@ class ZadarmaWebhook(http.Controller):
         })
         _logger.info("Zadarma: Saved outbound call for %s by SIP %s", phone, sip)
         self._post_chatter(lead, partner, 'outbound', phone, duration, data.get('disposition'), user=user)
+
+    def _zadarma_get_recording_url(self, call_id_with_rec, pbx_call_id):
+        company = request.env['res.company'].sudo().search([], limit=1)
+        key = company.zadarma_api_key
+        secret = company.zadarma_api_secret
+        if not key or not secret:
+            return None
+        method = '/v1/pbx/record/request/'
+        params = {'call_id': call_id_with_rec, 'pbx_call_id': pbx_call_id}
+        qs = urlencode(sorted(params.items()))
+        md5 = hashlib.md5(qs.encode()).hexdigest()
+        sign_str = method + qs + md5
+        sig = base64.b64encode(
+            hmac.new(secret.encode(), sign_str.encode(), hashlib.sha1).hexdigest().encode()
+        ).decode()
+        try:
+            resp = requests.get(
+                f'https://api.zadarma.com{method}?{qs}',
+                headers={'Authorization': f'{key}:{sig}'},
+                timeout=10,
+            )
+            data = resp.json()
+            _logger.info("Zadarma recording request response: %s", data)
+            return data.get('link')
+        except Exception as e:
+            _logger.error("Zadarma: Failed to get recording URL: %s", e)
+            return None
+
+    def _process_notify_record(self, data):
+        pbx_call_id = data.get('pbx_call_id')
+        call_id_with_rec = data.get('call_id_with_rec')
+        if not pbx_call_id or not call_id_with_rec:
+            return
+        call = request.env['zadarma.call'].sudo().search([('call_id', '=', pbx_call_id)], limit=1)
+        if not call:
+            _logger.warning("Zadarma NOTIFY_RECORD: call not found for pbx_call_id=%s", pbx_call_id)
+            return
+        recording_url = self._zadarma_get_recording_url(call_id_with_rec, pbx_call_id)
+        if recording_url:
+            call.sudo().write({'recording_url': recording_url})
+            _logger.info("Zadarma: Saved recording URL for call %s", pbx_call_id)
