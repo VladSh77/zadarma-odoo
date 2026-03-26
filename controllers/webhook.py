@@ -199,7 +199,8 @@ class ZadarmaWebhook(http.Controller):
             )
             data = resp.json()
             _logger.info("Zadarma recording request response: %s", data)
-            return data.get('link')
+            links = data.get('links') or []
+            return links[0] if links else data.get('link')
         except Exception as e:
             _logger.error("Zadarma: Failed to get recording URL: %s", e)
             return None
