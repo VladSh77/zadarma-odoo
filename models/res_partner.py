@@ -30,7 +30,7 @@ class ResPartner(models.Model):
             return False
 
         api_method = "/v1/request/callback/"
-        params = {'from': sip_id, 'to': target}
+        params = {'from': sip_id, 'to': target, 'sip': sip_id}
 
         query_string = urlencode(sorted(params.items()))
         md5_string = hashlib.md5(query_string.encode('utf8')).hexdigest()
