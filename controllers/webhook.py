@@ -55,18 +55,26 @@ class ZadarmaWebhook(http.Controller):
                             data.get('caller_id'), data.get('called_did'))
             return
 
-        # 1. Find partner by last 9 digits of phone number
-        partner = env['res.partner'].sudo().search([
-            '|', ('phone', 'ilike', norm_phone[-9:]),
-            ('mobile', 'ilike', norm_phone[-9:])
-        ], limit=1)
+        # 1. Find partner by last 9 digits, stripping non-digits from stored phone numbers
+        suffix = norm_phone[-9:]
+        env.cr.execute("""
+            SELECT id FROM res_partner
+            WHERE active = true
+              AND (
+                regexp_replace(phone, '[^0-9]', '', 'g') LIKE %s
+                OR regexp_replace(mobile, '[^0-9]', '', 'g') LIKE %s
+              )
+            LIMIT 1
+        """, [f'%{suffix}', f'%{suffix}'])
+        row = env.cr.fetchone()
+        partner = env['res.partner'].sudo().browse(row[0]) if row else env['res.partner'].sudo().browse()
 
         # 2. Find open lead for this partner, or create a new lead if unknown caller
         lead = env['crm.lead'].sudo().search([
             ('partner_id', '=', partner.id),
             ('type', '=', 'lead'),
             ('probability', '<', 100)
-        ], limit=1) if partner else None
+        ], limit=1) if partner else env['crm.lead'].sudo().browse()
 
         if not partner and not lead:
             lead = env['crm.lead'].sudo().create({
@@ -76,15 +84,33 @@ class ZadarmaWebhook(http.Controller):
             })
 
         # 3. Save call record
-        env['zadarma.call'].sudo().create({
+        duration = int(data.get('duration', 0))
+        call = env['zadarma.call'].sudo().create({
             'call_id': data.get('call_id'),
             'date_start': data.get('call_start'),
             'phone_number': phone,
             'direction': direction,
-            'duration': int(data.get('duration', 0)),
+            'duration': duration,
             'status': data.get('disposition'),
             'partner_id': partner.id if partner else False,
             'lead_id': lead.id if lead else False,
             'recording_url': data.get('recording'),
         })
         _logger.info("Zadarma: Saved %s call for %s with recording: %s", direction, phone, data.get('recording'))
+
+        # 4. Post chatter message on lead or partner
+        direction_label = 'Вихідний' if direction == 'outbound' else 'Вхідний'
+        minutes, seconds = divmod(duration, 60)
+        duration_str = f"{minutes}хв {seconds}с" if minutes else f"{seconds}с"
+        body = (
+            f"<b>📞 {direction_label} дзвінок</b><br/>"
+            f"Номер: {phone}<br/>"
+            f"Тривалість: {duration_str}<br/>"
+            f"Статус: {data.get('disposition', '—')}"
+        )
+        if data.get('recording'):
+            body += f'<br/><a href="{data["recording"]}">Слухати запис</a>'
+
+        chatter_target = lead if lead else partner
+        if chatter_target:
+            chatter_target.sudo().message_post(body=body, subtype_xmlid='mail.mt_note')
