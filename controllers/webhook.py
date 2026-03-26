@@ -47,6 +47,9 @@ class ZadarmaWebhook(http.Controller):
                 regexp_replace(phone, '[^0-9]', '', 'g') LIKE %s
                 OR regexp_replace(mobile, '[^0-9]', '', 'g') LIKE %s
               )
+            ORDER BY
+                (CASE WHEN name ~ '^[0-9 +().-]+$' THEN 1 ELSE 0 END) ASC,
+                id ASC
             LIMIT 1
         """, [f'%{suffix}', f'%{suffix}'])
         row = request.env.cr.fetchone()
