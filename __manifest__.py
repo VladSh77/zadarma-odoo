@@ -2,8 +2,9 @@
     'name': 'Zadarma Odoo Integration (Campscout)',
     'version': '1.3.0',
     'category': 'CRM',
-    'summary': 'Hybrid Zadarma Integration: Lead Automation & SIP Mapping',
-    'author': 'VladSh77',
+    'summary': 'Інтеграція телефонії Zadarma: автоматичне збереження дзвінків, CRM, chatter',
+    'author': 'Fayna',
+    'website': 'https://fayna.company',
     'depends': ['base', 'crm', 'mail'],
     'data': [
         'security/zadarma_security.xml',
