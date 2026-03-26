@@ -1,226 +1,366 @@
-# zadarma_odoo — Технічна документація
+# Zadarma Odoo Integration — Технічна документація
 
-**Версія:** 1.3.0
-**Odoo:** 17.0
+**Модуль:** `zadarma_odoo`
+**Версія:** 1.5.0
+**Платформа:** Odoo 17.0
+**Автор:** Fayna (fayna.company)
+**Ліцензія:** LGPL-3
+**Клієнт:** CampScout (campscout.eu)
 **Репозиторій:** https://github.com/VladSh77/zadarma-odoo
-**Production:** https://campscout.eu
-**Шлях на сервері:** `/opt/campscout/custom-addons/zadarma_odoo`
 
 ---
 
-## Призначення
+## Зміст
 
-Інтеграція телефонії Zadarma з Odoo для CampScout:
-- Автоматичне збереження всіх дзвінків (вхідних і вихідних) через webhook
-- Прив'язка дзвінків до контактів і лідів CRM
-- Нотатки в chatter при кожному дзвінку
-- Кнопка виклику з картки контакту через Zadarma API
-- Ручний імпорт історії дзвінків за обраний період
+1. [Огляд модуля](#огляд-модуля)
+2. [Архітектура](#архітектура)
+3. [Моделі даних](#моделі-даних)
+4. [Webhook — обробка подій](#webhook--обробка-подій)
+5. [Click-to-Call](#click-to-call)
+6. [Імпорт дзвінків](#імпорт-дзвінків)
+7. [Записи розмов](#записи-розмов)
+8. [Налаштування](#налаштування)
+9. [Логіка визначення напрямку дзвінка](#логіка-визначення-напрямку-дзвінка)
+10. [Логіка пошуку контакту](#логіка-пошуку-контакту)
+11. [Відомі обмеження](#відомі-обмеження)
+12. [Changelog](#changelog)
 
 ---
 
-## Структура файлів
+## Огляд модуля
+
+Модуль інтегрує хмарну АТС **Zadarma** з Odoo CRM. Забезпечує:
+
+- Автоматичне збереження вхідних і вихідних дзвінків через webhook
+- Прив'язку дзвінків до контактів (`res.partner`) і лідів (`crm.lead`)
+- Авто-створення ліда при дзвінку з невідомого номера
+- Нотатки у Chatter з деталями дзвінка (від імені менеджера)
+- Click-to-Call через Zadarma Callback API
+- Ретроспективний імпорт дзвінків за довільний період
+- Завантаження записів розмов у Odoo filestore (постійне зберігання)
+- Визначення відповідального менеджера за SIP-номером
+
+---
+
+## Архітектура
 
 ```
 zadarma_odoo/
-├── __init__.py
 ├── __manifest__.py
-├── hooks.py                          # post_init_hook — деактивація binotel view
+├── __init__.py
 ├── controllers/
-│   └── webhook.py                    # Обробник подій від Zadarma
+│   ├── __init__.py
+│   └── webhook.py          # HTTP endpoint для webhook-подій Zadarma
 ├── models/
 │   ├── __init__.py
-│   ├── zadarma_call.py               # Модель запису дзвінка
-│   ├── res_company.py                # API ключі на рівні компанії
-│   ├── res_users.py                  # SIP номер користувача
-│   ├── res_partner.py                # Кнопка виклику + stat button
-│   ├── partner_lead_ext.py           # Розширення партнера і ліда (лічильники)
-│   └── zadarma_import.py             # TransientModel wizard імпорту
+│   ├── zadarma_call.py     # Модель запису дзвінка
+│   ├── zadarma_import.py   # TransientModel для імпорту
+│   ├── res_company.py      # API credentials на компанії
+│   ├── res_users.py        # SIP ID на користувачі
+│   ├── res_partner.py      # Click-to-Call
+│   └── partner_lead_ext.py # Лічильник дзвінків на партнері і ліді
 ├── views/
-│   ├── zadarma_views.xml             # Список та форма дзвінків, меню
-│   ├── res_company_views.xml         # Вкладка Zadarma в налаштуваннях компанії
-│   ├── res_users_views.xml           # Поле SIP в профілі користувача
-│   ├── partner_lead_views.xml        # Кнопки на картці партнера і ліда
-│   └── zadarma_import_views.xml      # Форма wizard імпорту
+│   ├── zadarma_views.xml
+│   ├── zadarma_import_views.xml
+│   ├── res_company_views.xml
+│   ├── res_users_views.xml
+│   └── partner_lead_views.xml
 ├── security/
-│   ├── zadarma_security.xml          # Групи доступу
-│   └── ir.model.access.csv           # Права на моделі
-└── migrations/
-    └── 1.3.0/
-        └── post-migrate.py           # Деактивація binotel_connect кнопок
+│   ├── zadarma_security.xml
+│   └── ir.model.access.csv
+└── static/description/
+    └── index.html
 ```
+
+**Залежності Odoo:** `base`, `crm`, `mail`
+
+---
+
+## Моделі даних
+
+### `zadarma.call` — Запис дзвінка
+
+| Поле | Тип | Опис |
+|------|-----|------|
+| `name` | Char (computed) | `"Дзвінок {phone} ({date})"` |
+| `call_id` | Char, index | Унікальний ID дзвінка від Zadarma (`pbx_call_id`) |
+| `date_start` | Datetime | Час початку дзвінка |
+| `phone_number` | Char, index | Номер зовнішнього абонента |
+| `direction` | Selection | `inbound` / `outbound` |
+| `duration` | Integer | Тривалість у секундах |
+| `status` | Char | `answered`, `cancel`, `busy`, тощо |
+| `partner_id` | Many2one → res.partner | Прив'язаний контакт |
+| `lead_id` | Many2one → crm.lead | Прив'язаний лід |
+| `user_id` | Many2one → res.users | Менеджер (визначається за SIP) |
+| `recording_url` | Char | `/web/content/{attachment_id}?download=true` |
+
+Сортування за замовчуванням: `date_start DESC`.
+
+### `res.company` — розширення
+
+| Поле | Тип | Опис |
+|------|-----|------|
+| `zadarma_api_key` | Char | API Key з кабінету Zadarma |
+| `zadarma_api_secret` | Char | API Secret з кабінету Zadarma |
+| `zadarma_callerid_rules` | Text | Зарезервоване поле (CallerID routing налаштовується в Zadarma) |
+
+### `res.users` — розширення
+
+| Поле | Тип | Опис |
+|------|-----|------|
+| `zadarma_internal_number` | Char | SIP ID менеджера (наприклад, `100`) |
+
+### `res.partner` / `crm.lead` — розширення
+
+| Поле | Тип | Опис |
+|------|-----|------|
+| `zadarma_call_ids` | One2many → zadarma.call | Всі дзвінки контакту/ліда |
+| `zadarma_call_count` | Integer (computed) | Кількість дзвінків |
+
+---
+
+## Webhook — обробка подій
+
+**URL:** `POST https://your-domain/zadarma/webhook`
+**Auth:** public (без авторизації Odoo)
+**CSRF:** вимкнено
+**Echo-верифікація:** GET з параметром `zd_echo` → повертає значення (перевірка Zadarma)
+
+### Оброблювані події
+
+#### `NOTIFY_END` — вхідний PBX-дзвінок завершено
+
+**Параметри:** `call_id`/`pbx_call_id`, `call_start`, `caller_id`, `called_did`, `duration`, `disposition`, `recording`
+
+**Логіка:**
+1. Визначення напрямку: якщо `caller_id` ≤ 5 цифр — внутрішній SIP → вихідний
+2. Вхідний: `phone = caller_id` (зовнішній номер)
+3. Пошук партнера за номером телефону (SQL з нормалізацією)
+4. Пошук активного ліда партнера (`probability < 100`)
+5. Якщо партнер і лід не знайдені — авто-створення ліда `"Дзвінок: {phone}"`
+6. Збереження `zadarma.call`
+7. Нотатка у Chatter від імені менеджера або OdooBot
+
+#### `NOTIFY_OUT_END` (calltype=`callback_leg2`) — вихідний callback
+
+Zadarma Callback API створює два виклики:
+- **leg1**: Zadarma дзвонить на SIP менеджера
+- **leg2**: Zadarma дзвонить клієнту
+
+Зберігається тільки **leg2** (реальний вихідний дзвінок).
+
+**Параметри:** `pbx_call_id`, `call_start`, `internal` (SIP менеджера), `destination` (номер клієнта), `duration`, `disposition`, `is_recorded`, `call_id_with_rec`
+
+**Логіка:**
+1. Перевірка дублікату за `call_id` (leg1 і leg2 мають однаковий `pbx_call_id`)
+2. `phone = destination` (нормалізований)
+3. `sip = internal` → пошук менеджера за `zadarma_internal_number`
+4. Збереження `zadarma.call`
+5. Нотатка у Chatter
+
+#### `NOTIFY_RECORD` — запис розмови готовий
+
+Надсилається Zadarma через ~5–10 секунд після завершення дзвінка (якщо `is_recorded=1`).
+
+**Параметри:** `pbx_call_id`, `call_id_with_rec`
+
+**Логіка:**
+1. Пошук `zadarma.call` за `pbx_call_id`
+2. Запит тимчасового URL через API `/v1/pbx/record/request/`
+3. Завантаження MP3 (timeout: 60s)
+4. Збереження як `ir.attachment` (`res_model='zadarma.call'`, `res_id=call.id`)
+5. `recording_url = '/web/content/{attachment_id}?download=true'`
+6. Fallback: при помилці завантаження — зберігається тимчасовий URL
+
+> **Важливо:** тимчасовий URL Zadarma діє лише **30 хвилин**. Тому файл завантажується і зберігається постійно в Odoo filestore.
+
+---
+
+## Click-to-Call
+
+**Метод:** `action_zadarma_call()` на `res.partner`
+
+**API Zadarma:** `GET /v1/request/callback/?from={SIP}&to={PHONE}&sip={SIP}`
+
+**Формат номера клієнта:** `+{цифри}` — обов'язково з `+`, інакше Zadarma не застосовує CallerID routing rules.
+
+**Підпис запиту (HMAC-SHA1):**
+```
+query_string = urlencode(sorted(params))
+md5          = MD5(query_string)
+sign_str     = METHOD + query_string + md5
+hmac_hex     = HMAC-SHA1(secret, sign_str).hexdigest()
+signature    = Base64(hmac_hex)
+Authorization: {key}:{signature}
+```
+
+**CallerID routing (в Zadarma, не в коді):**
+- `+380*` → CallerID `+380630202948` (Україна)
+- `+48*` → CallerID `+48459568854` (Польща)
+
+**Параметр `sip=`:** активує CallerID-by-destination і prefix dialling конкретного SIP-розширення.
+
+**Callback flow:**
+```
+action_zadarma_call()
+    → POST /v1/request/callback/ (from=SIP, to=+PHONE, sip=SIP)
+    → Zadarma дзвонить на SIP менеджера (leg1)
+    → Менеджер бере трубку
+    → Zadarma дзвонить клієнту з правильним CallerID (leg2)
+    → NOTIFY_OUT_END (leg2) → збереження в Odoo
+    → NOTIFY_RECORD → завантаження запису
+```
+
+---
+
+## Імпорт дзвінків
+
+**Модель:** `zadarma.import` (TransientModel)
+**Меню:** Zadarma → Імпорт дзвінків
+**API Zadarma:** `GET /v1/statistics/pbx/`
+
+| Параметр форми | Default | Опис |
+|---|---|---|
+| `date_from` | -30 днів | Початок діапазону |
+| `date_to` | сьогодні | Кінець діапазону |
+
+**Особливості:**
+- Пагінація: `skip/limit=1000`, затримка 1с між сторінками (rate limit)
+- При HTTP 429: 3 спроби з затримками 3/6/9 секунд
+- Дедублікація: існуючі `call_id` пропускаються
+- Визначення напрямку: `sip ≤ 5 цифр` → вихідний
+- Нотатки в Chatter позначаються як `(імпорт)` і публікуються від поточного користувача
+
+---
+
+## Записи розмов
+
+### Повний потік отримання запису:
+
+```
+Дзвінок завершується
+    └── NOTIFY_OUT_END / NOTIFY_END (is_recorded=1, call_id_with_rec=XXX)
+        └── NOTIFY_RECORD (5-10 сек пізніше)
+            └── GET /v1/pbx/record/request/?call_id=XXX&pbx_call_id=YYY
+                └── {"status":"success","links":["https://api.zadarma.com/...mp3"],"lifetime_till":"...+30хв"}
+                    └── requests.get(url, timeout=60)
+                        └── ir.attachment.create(datas=base64(mp3))
+                            └── zadarma.call.recording_url = '/web/content/{id}?download=true'
+```
+
+### Зберігання:
+- **Місце:** Odoo filestore (`/var/lib/odoo/filestore/{db}/`)
+- **Прив'язка:** `ir.attachment.res_model = 'zadarma.call'`, `res_id = call.id`
+- **Доступ:** через стандартний Odoo endpoint `/web/content/`
 
 ---
 
 ## Налаштування
 
-### 1. API ключі Zadarma
-`Налаштування → Компанії → [компанія] → вкладка "Zadarma Settings"`
-- **Zadarma Key** — API ключ з особистого кабінету Zadarma → API
-- **Zadarma Secret** — API secret
+### 1. Zadarma API credentials
+`Налаштування → Компанія → вкладка Zadarma`
+- **Zadarma Key** і **Zadarma Secret** з кабінету Zadarma → API → Ключі
 
-### 2. SIP номер користувача
-`Налаштування → Користувачі → [користувач] → поле "Zadarma SIP ID"`
-Приклад: `101` — внутрішній номер SIP для вихідних дзвінків.
+### 2. SIP ID менеджерів
+`Налаштування → Користувачі → [менеджер] → Zadarma SIP ID`
+- Значення: `100`, `101`, `102`, `103` (внутрішні номери АТС)
 
-### 3. Webhook у Zadarma
-Кабінет Zadarma → Налаштування → API → Webhook:
-- **URL:** `https://campscout.eu/zadarma/webhook`
-- **Events:** `NOTIFY_START`, `NOTIFY_END`
-
----
-
-## Моделі
-
-### `zadarma.call` — запис дзвінка
-
-| Поле | Тип | Опис |
-|------|-----|------|
-| `call_id` | Char | ID дзвінка (Zadarma `call_id` або `pbx_call_id`) |
-| `date_start` | Datetime | Час початку |
-| `phone_number` | Char | Номер зовнішнього абонента |
-| `direction` | Selection | `inbound` / `outbound` |
-| `duration` | Integer | Тривалість у секундах |
-| `status` | Char | `answered`, `cancel`, `no answer`, `failed` |
-| `partner_id` | Many2one | Прив'язаний контакт (`res.partner`) |
-| `lead_id` | Many2one | Прив'язаний лід (`crm.lead`) |
-| `user_id` | Many2one | Відповідальний менеджер |
-| `recording_url` | Char | URL запису розмови (лише через webhook) |
-| `name` | Char (compute) | "Дзвінок {phone} ({date})" |
-
-### `res.company` — розширення
-- `zadarma_api_key` — API ключ
-- `zadarma_api_secret` — API secret
-
-### `res.users` — розширення
-- `zadarma_internal_number` — SIP ID для вихідних дзвінків
-
-### `res.partner` — розширення
-- `zadarma_call_ids` — One2many до `zadarma.call`
-- `zadarma_call_count` — обчислюване число дзвінків (для stat button)
-- `action_zadarma_call()` — ініціює вихідний дзвінок через Zadarma API
-
-### `crm.lead` — розширення
-- `zadarma_call_ids` — One2many до `zadarma.call`
-- `zadarma_call_count` — обчислюване число дзвінків
-
-### `zadarma.import` — TransientModel (wizard)
-| Поле | Тип | Опис |
-|------|-----|------|
-| `date_from` | Date | Початок діапазону (default: -30 днів) |
-| `date_to` | Date | Кінець діапазону (default: сьогодні) |
-| `result_message` | Text | Результат після виконання |
-
-Метод `action_import()` — виконує імпорт з Zadarma API.
-
----
-
-## Webhook — логіка обробки
-
-**Endpoint:** `POST https://campscout.eu/zadarma/webhook`
-**Контролер:** [controllers/webhook.py](controllers/webhook.py)
-**Auth:** public (без авторизації, верифікація через GET `?zd_echo=...`)
-
-### Підтримувані події
-
-| Event | Дія |
-|-------|-----|
-| `NOTIFY_END` | Зберігає дзвінок, шукає партнера, створює лід, пише chatter |
-| GET `?zd_echo=X` | Повертає `X` для верифікації webhook у кабінеті Zadarma |
-
-### Алгоритм `_process_call_end`
-
+### 3. Webhook URL у кабінеті Zadarma
+`Zadarma → АТС → Налаштування → Webhook / API`
 ```
-1. Валідація: call_id або pbx_call_id + call_start — обов'язкові
-2. Визначення напрямку:
-   - caller_id ≤ 5 цифр → OUTBOUND (внутрішній SIP дзвонить назовні)
-   - caller_id > 5 цифр → INBOUND (зовнішній номер дзвонить на CampScout)
-3. Пошук партнера: SQL + regexp_replace (ігнорує форматування номера)
-4. Пошук відкритого ліда для знайденого партнера
-5. Якщо ні партнер ні лід — створення нового ліда
-6. Збереження zadarma.call
-7. Нотатка в chatter ліда або партнера
+https://campscout.eu/zadarma/webhook
+```
+Активувати події: `NOTIFY_START`, `NOTIFY_ANSWER`, `NOTIFY_END`, `NOTIFY_OUT_START`, `NOTIFY_OUT_END`, `NOTIFY_RECORD`
+
+### 4. CallerID routing у Zadarma
+`Zadarma → АТС → SIP-розширення → [кожен SIP] → CallerID за напрямком: УВІМК.`
+
+Налаштувати правила:
+- Префікс `+380` → CallerID `+380630202948`
+- Префікс `+48` → CallerID `+48459568854`
+
+Увімкнути на кожному розширенні (100, 101, 102, 103).
+
+### 5. Запис розмов у Zadarma
+Увімкнути запис дзвінків у налаштуваннях АТС Zadarma.
+
+---
+
+## Логіка визначення напрямку дзвінка
+
+### Webhook (`NOTIFY_END`):
+```python
+INTERNAL_NUMBER_MAX_LENGTH = 5
+is_outbound = len(re.sub(r'\D', '', str(caller_id))) <= 5
+# Вихідний: caller_id = "100" (SIP), called_did = номер клієнта
+# Вхідний:  caller_id = "+48573134144" (зовнішній номер)
 ```
 
-### Важлива особливість Zadarma API
-Zadarma надсилає **різні ID залежно від типу дзвінка:**
-- `call_id` — є тільки у відповіджених дзвінків
-- `pbx_call_id` — є у ВСІХ дзвінках, включно з пропущеними (`cancel`, `no answer`)
-
-Код: `call_id = data.get('call_id') or data.get('pbx_call_id')`
+### Imпорт (`/v1/statistics/pbx/`):
+```python
+is_outbound = len(re.sub(r'\D', '', sip)) <= 5
+# Вихідний: phone = destination
+# Вхідний:  phone = sip
+```
 
 ---
 
-## Пошук партнера за телефоном
-
-Використовується SQL з `regexp_replace` — знаходить контакти незалежно від форматування:
+## Логіка пошуку контакту
 
 ```sql
 SELECT id FROM res_partner
 WHERE active = true
   AND (
-    regexp_replace(phone, '[^0-9]', '', 'g') LIKE '%886736530'
-    OR regexp_replace(mobile, '[^0-9]', '', 'g') LIKE '%886736530'
+    regexp_replace(phone, '[^0-9]', '', 'g') LIKE '%{suffix}'
+    OR regexp_replace(mobile, '[^0-9]', '', 'g') LIKE '%{suffix}'
   )
+ORDER BY
+  (CASE WHEN name ~ '^[0-9 +().-]+$' THEN 1 ELSE 0 END) ASC,
+  id ASC
 LIMIT 1
 ```
 
-Порівняння по **останніх 9 цифрах** — підтримує `+48 886 736 530`, `+48886736530`, `048886736530`.
+- `suffix` = останні 9 цифр номера (відсікає різні коди країн)
+- **ORDER BY**: пріоритет контактів з нечисловими іменами (реальні люди перед технічними записами типу `"48889448977"`)
 
 ---
 
-## Вихідний дзвінок (кнопка на партнері)
+## Відомі обмеження
 
-Кнопки `fa-phone` після полів `phone` і `mobile` на картці контакту.
-Реалізація: [models/res_partner.py](models/res_partner.py) → `action_zadarma_call()`
-
-**Алгоритм:**
-1. Бере `zadarma_api_key` / `zadarma_api_secret` з компанії
-2. Бере `zadarma_internal_number` з поточного користувача
-3. Підпис: `HMAC-SHA1(base64)` + `MD5` згідно Zadarma SDK
-4. `GET https://api.zadarma.com/v1/request/callback/?from={sip}&to={phone}`
+1. **Один SIP на менеджера** — `zadarma_internal_number` зберігає один номер.
+2. **Запис лише для callback** — вхідні дзвінки (`NOTIFY_END`) отримують поле `recording` напряму; для вихідних використовується `NOTIFY_RECORD`.
+3. **Filestore розмір** — записи розмов займають місце на диску. Для довгострокового зберігання розгляньте S3/зовнішнє сховище.
+4. **`zadarma_callerid_rules`** — поле присутнє в БД але не використовується кодом.
+5. **Часова зона** — дати від Zadarma приходять у форматі без timezone; Odoo зберігає в UTC.
 
 ---
 
-## Імпорт історії дзвінків
+## Changelog
 
-**Меню:** Zadarma → Імпорт дзвінків
-**Реалізація:** [models/zadarma_import.py](models/zadarma_import.py)
+### v1.5.0 (2026-03-26)
+- **[FIX]** Click-to-Call: номер клієнта передається з `+` prefix → CallerID routing в Zadarma коректно обирає транк (+380 → Україна, +48 → Польща)
+- **[FEAT]** Обробка `NOTIFY_RECORD`: MP3 завантажується у Odoo filestore через `ir.attachment`, `recording_url` вказує на постійний internal URL
+- **[FIX]** Zadarma API повертає `links[]` (масив), а не `link` (рядок) — виправлено парсинг
+- **[FIX]** Chatter нотатки публікуються від імені менеджера (`with_user(user.id)`), а не від Public User
+- **[FIX]** `_find_partner` ORDER BY: пріоритет контактів з нечисловими іменами — усуває вибір технічних партнерів-дублікатів
+- **[FIX]** Callback API: доданий параметр `sip=` для активації CallerID-by-destination і prefix dialling
+- **[FIX]** `_zadarma_get_recording_url`: пошук компанії з наявним `zadarma_api_key` замість `search([])`
+- **[DEBUG→CLEAN]** Прибрано надлишкове агресивне логування з попередніх версій
 
-Endpoint: `GET /v1/statistics/pbx/` з пагінацією (1000 записів / запит, пауза 1с між сторінками).
-При помилці 429 — автоматичний retry (3 спроби, затримка 3/6/9 секунд).
+### v1.3.0
+- Додано поле `recording_url` у `zadarma.call`
+- Відображення посилання на запис у form view
 
-**Логіка:**
-- Пропускає записи, де `call_id` вже є в БД
-- Визначає напрямок по довжині `sip` (≤5 цифр = outbound)
-- Пошук партнера через той самий SQL що і webhook
-- Chatter нотатка з позначкою "(імпорт)"
-- Повертає кількість імпортованих і вже існуючих
+### v1.2.0
+- Click-to-Call через Zadarma Callback API
+- Ретроспективний імпорт дзвінків (`zadarma.import`)
+- Rate limit handling (HTTP 429)
 
-**Обмеження:** `recording_url` не заповнюється — Zadarma API повертає лише `is_recorded: true/false`, без URL.
+### v1.1.0
+- Обробка webhook `NOTIFY_END`, `NOTIFY_OUT_END`
+- Авто-створення лідів для невідомих номерів
+- Chatter нотатки
+- Пошук менеджера за SIP ID
 
----
-
-## Деплой
-
-```bash
-# Тільки зміни коду (без нових моделей/views):
-cd /opt/campscout/custom-addons/zadarma_odoo && git pull
-docker compose -f /opt/campscout/docker-compose.yml restart web
-
-# Нові моделі, XML або migration:
-cd /opt/campscout/custom-addons/zadarma_odoo && git pull
-cd /opt/campscout
-docker compose stop web
-docker compose run --rm web odoo --update zadarma_odoo --stop-after-init -d campscout
-docker compose start web
-```
-
----
-
-## Конфлікти з іншими модулями
-
-| Модуль | Конфлікт | Вирішення |
-|--------|----------|-----------|
-| `binotel_connect` | Додає 2 кнопки дзвінка на партнера → разом 3 кнопки | Migration 1.3.0 деактивує `binotel_connect.view_partner_form_inherit` |
-| `kw_phone` / `kw_phone_search` | Немає конфлікту | — |
+### v1.0.0
+- Початкова версія: модель `zadarma.call`, базові views, security
