@@ -13,7 +13,7 @@
                     <field name="status"/>
                     <field name="partner_id"/>
                     <field name="lead_id"/>
-                    <field name="recording_url" widget="url" text="Слухати"/>
+                    <field name="recording_url" widget="url" text="Слухати" invisible="not recording_url"/>
                 </tree>
             </field>
         </record>
@@ -36,7 +36,7 @@
                                 <field name="partner_id"/>
                                 <field name="lead_id"/>
                                 <field name="user_id"/>
-                                <field name="recording_url" widget="url" text="Відкрити запис розмови"/>
+                                <field name="recording_url" widget="url" text="Відкрити запис розмови" invisible="not recording_url"/>
                             </group>
                         </group>
                     </sheet>
