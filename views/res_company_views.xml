@@ -12,6 +12,10 @@
                             <field name="zadarma_api_key" password="True"/>
                             <field name="zadarma_api_secret" password="True"/>
                         </group>
+                        <group string="CallerID за напрямком">
+                            <field name="zadarma_callerid_rules" nolabel="1"
+                                   placeholder="380:+380630202948&#10;48:+48459568854"/>
+                        </group>
                     </page>
                 </xpath>
             </field>

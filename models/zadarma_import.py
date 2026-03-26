@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 from datetime import datetime, timedelta
 
 import requests
+from markupsafe import Markup
 
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
@@ -138,11 +139,16 @@ class ZadarmaImport(models.TransientModel):
                 direction_label = 'Вихідний' if is_outbound else 'Вхідний'
                 minutes, seconds = divmod(duration, 60)
                 duration_str = f"{minutes}хв {seconds}с" if minutes else f"{seconds}с"
-                body = (
-                    f"<b>📞 {direction_label} дзвінок (імпорт)</b><br/>"
-                    f"Номер: {phone}<br/>"
-                    f"Тривалість: {duration_str}<br/>"
-                    f"Статус: {status}"
+                body = Markup(
+                    "<b>📞 {direction} дзвінок (імпорт)</b><br/>"
+                    "Номер: {phone}<br/>"
+                    "Тривалість: {duration}<br/>"
+                    "Статус: {status}"
+                ).format(
+                    direction=direction_label,
+                    phone=phone,
+                    duration=duration_str,
+                    status=status,
                 )
                 chatter_target = lead if lead else partner
                 if chatter_target:
