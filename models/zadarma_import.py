@@ -152,7 +152,7 @@ class ZadarmaImport(models.TransientModel):
                 )
                 chatter_target = lead if lead else partner
                 if chatter_target:
-                    chatter_target.sudo().message_post(body=body, subtype_xmlid='mail.mt_note')
+                    chatter_target.with_user(self.env.uid).message_post(body=body, subtype_xmlid='mail.mt_note')
 
                 imported += 1
 

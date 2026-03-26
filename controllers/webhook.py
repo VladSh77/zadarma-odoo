@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import http
+from odoo import http, SUPERUSER_ID
 from odoo.http import request
 from markupsafe import Markup
 import logging
@@ -59,7 +59,7 @@ class ZadarmaWebhook(http.Controller):
             ('zadarma_internal_number', '=', str(sip).strip())
         ], limit=1)
 
-    def _post_chatter(self, lead, partner, direction, phone, duration, status, recording_url=None):
+    def _post_chatter(self, lead, partner, direction, phone, duration, status, recording_url=None, user=None):
         direction_label = 'Вихідний' if direction == 'outbound' else 'Вхідний'
         minutes, seconds = divmod(duration, 60)
         duration_str = f"{minutes}хв {seconds}с" if minutes else f"{seconds}с"
@@ -73,7 +73,8 @@ class ZadarmaWebhook(http.Controller):
             body += Markup('<br/><a href="{url}">Слухати запис</a>').format(url=recording_url)
         chatter_target = lead if lead else partner
         if chatter_target:
-            chatter_target.sudo().message_post(body=body, subtype_xmlid='mail.mt_note')
+            poster_uid = user.id if user else SUPERUSER_ID
+            chatter_target.with_user(poster_uid).message_post(body=body, subtype_xmlid='mail.mt_note')
 
     def _process_call_end(self, data):
         # Inbound PBX calls (NOTIFY_END)
@@ -121,7 +122,7 @@ class ZadarmaWebhook(http.Controller):
         })
         _logger.info("Zadarma: Saved %s call for %s", direction, phone)
         self._post_chatter(lead, partner, direction, phone, duration,
-                           data.get('disposition'), data.get('recording'))
+                           data.get('disposition'), data.get('recording'), user=user)
 
     def _process_outbound_call_end(self, data):
         # Outbound callback calls (NOTIFY_OUT_END, calltype=callback_leg2)
@@ -160,4 +161,4 @@ class ZadarmaWebhook(http.Controller):
             'user_id': user.id if user else False,
         })
         _logger.info("Zadarma: Saved outbound call for %s by SIP %s", phone, sip)
-        self._post_chatter(lead, partner, 'outbound', phone, duration, data.get('disposition'))
+        self._post_chatter(lead, partner, 'outbound', phone, duration, data.get('disposition'), user=user)
