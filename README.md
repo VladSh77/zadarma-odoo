@@ -1,16 +1,63 @@
-# Zadarma Odoo Integration — Технічна документація
+# Zadarma VoIP Integration for Odoo 17
 
-**Модуль:** `zadarma_odoo`
-**Версія:** 1.5.0
-**Платформа:** Odoo 17.0
-**Автор:** Fayna (fayna.company)
-**Ліцензія:** LGPL-3
-**Клієнт:** CampScout (campscout.eu)
-**Репозиторій:** https://github.com/VladSh77/zadarma-odoo
+![Odoo Version](https://img.shields.io/badge/Odoo-17.0%20Community-purple)
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![License](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)
+![Status](https://img.shields.io/badge/Status-Production-brightgreen)
+![Version](https://img.shields.io/badge/Version-1.5.0-informational)
+
+**Developed by [Fayna Digital](https://fayna.agency) for [CampScout](https://campscout.eu)**  
+**Author: Volodymyr Shevchenko**
 
 ---
 
-## Зміст
+Custom Odoo 17 module that integrates **Zadarma cloud PBX** with Odoo CRM.  
+All inbound and outbound calls are automatically logged, linked to partners and leads, and call recordings are stored permanently in the Odoo filestore.
+
+## Features
+
+- Automatic logging of inbound/outbound calls via Zadarma Webhook
+- Call-to-partner linking (`res.partner`) and lead linking (`crm.lead`)
+- Auto-creation of a lead for unknown callers
+- Chatter notes posted on behalf of the responsible manager (by SIP ID)
+- **Click-to-Call** via Zadarma Callback API with CallerID routing (`+380` UA / `+48` PL)
+- Call recordings downloaded to Odoo filestore (permanent storage, not temporary Zadarma URL)
+- Retrospective import of calls for any date range (with HTTP 429 rate-limit handling)
+- Deduplication by `call_id` (handles Callback API leg1/leg2 split)
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| ERP Framework | Odoo 17.0 Community |
+| VoIP System | Zadarma Cloud PBX (Webhook + Callback API) |
+| Call Records | `ir.attachment` → Odoo Filestore |
+| Auth Scheme | HMAC-SHA1 (API key + secret) |
+| Language | Python 3.10+ |
+| License | LGPL-3.0 |
+
+---
+
+## Quick Setup
+
+1. **Zadarma API credentials** → `Settings → Company → Zadarma tab`
+2. **SIP ID per manager** → `Settings → Users → [user] → Zadarma SIP ID`
+3. **Webhook URL in Zadarma cabinet** → `https://your-domain/zadarma/webhook`  
+   Events: `NOTIFY_END`, `NOTIFY_OUT_END`, `NOTIFY_RECORD`
+4. **CallerID routing** → configure prefix rules per SIP extension in Zadarma cabinet
+
+Full setup details: [Налаштування](#налаштування)
+
+---
+
+## Module Info
+
+**Module:** `zadarma_odoo` · **Version:** 1.5.0 · **Platform:** Odoo 17.0  
+**Client:** CampScout (campscout.eu) · **Repository:** https://github.com/VladSh77/zadarma-odoo
+
+---
+
+## Technical Documentation
 
 1. [Огляд модуля](#огляд-модуля)
 2. [Архітектура](#архітектура)
