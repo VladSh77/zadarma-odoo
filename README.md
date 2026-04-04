@@ -1,13 +1,12 @@
-# Zadarma VoIP Integration for Odoo 17
+# 🔌 Zadarma VoIP Integration for Odoo 17
 
 ![Odoo Version](https://img.shields.io/badge/Odoo-17.0%20Community-purple)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
-![License](https://img.shields.io/badge/License-LGPL%203.0-blue.svg)
+![VoIP](https://img.shields.io/badge/Zadarma-VoIP%20API-red)
+![License](https://img.shields.io/badge/License-LGPL--3.0-green.svg)
 ![Status](https://img.shields.io/badge/Status-Production-brightgreen)
-![Version](https://img.shields.io/badge/Version-1.5.0-informational)
 
-**Developed by [Fayna Digital](https://fayna.agency) for [CampScout](https://campscout.eu)**  
-**Author: Volodymyr Shevchenko**
+**Developed by [Fayna Digital](https://fayna.agency) — Author: Volodymyr Shevchenko**
 
 ---
 
