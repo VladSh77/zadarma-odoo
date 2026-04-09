@@ -170,5 +170,6 @@ class ZadarmaImport(models.TransientModel):
             'res_model': 'zadarma.import',
             'res_id': self.id,
             'view_mode': 'form',
+            'views': [(False, 'form')],
             'target': 'new',
         }

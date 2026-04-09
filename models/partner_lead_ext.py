@@ -17,6 +17,7 @@ class ResPartner(models.Model):
             'name': 'Дзвінки Zadarma',
             'res_model': 'zadarma.call',
             'view_mode': 'tree,form',
+            'views': [(False, 'list'), (False, 'form')],
             'domain': [('partner_id', '=', self.id)],
             'context': {'default_partner_id': self.id},
         }
@@ -38,6 +39,7 @@ class CrmLead(models.Model):
             'name': 'Дзвінки Zadarma',
             'res_model': 'zadarma.call',
             'view_mode': 'tree,form',
+            'views': [(False, 'list'), (False, 'form')],
             'domain': [('lead_id', '=', self.id)],
             'context': {'default_lead_id': self.id},
         }
