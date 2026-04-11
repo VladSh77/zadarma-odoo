@@ -7,7 +7,7 @@
 ## [ops] — 2026-04-10
 
 - Git sync only: локально, **`origin/main`** і **`/opt/campscout/custom-addons/zadarma_odoo`** узгоджені (**`git pull --ff-only`**); змін коду **немає**.
-- Зведений лог: `DevJournal/sessions/2026-04-10-omnichannel-operations-git-deploy.md`.
+- Зведений лог: `DevJournal/sessions/LOG.md` (розділ **2026-04-10**).
 
 ---
 
