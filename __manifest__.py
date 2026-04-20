@@ -5,11 +5,12 @@
     'summary': 'Інтеграція телефонії Zadarma: автоматичне збереження дзвінків, CRM, chatter',
     'author': 'Fayna',
     'website': 'https://fayna.company',
-    'depends': ['base', 'crm', 'mail'],
+    'depends': ['base', 'crm', 'mail', 'sms'],
     'data': [
         'security/zadarma_security.xml',
         'security/ir.model.access.csv',
         'views/zadarma_views.xml',
+        'views/sms_stats_views.xml',
         'views/res_company_views.xml',
         'views/res_users_views.xml',
         'views/partner_lead_views.xml',
