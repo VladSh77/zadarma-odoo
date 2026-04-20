@@ -47,20 +47,46 @@ class ZadarmaWebhook(http.Controller):
         if not norm_phone:
             return request.env['res.partner'].sudo().browse()
         suffix = norm_phone[-9:]
+        # Use kw_phone_cleaned / kw_mobile_cleaned (digits only, indexed)
+        # from kw_phone_search module, with regexp fallback for unindexed rows
         request.env.cr.execute("""
             SELECT id FROM res_partner
             WHERE active = true
               AND (
-                regexp_replace(phone, '[^0-9]', '', 'g') LIKE %s
-                OR regexp_replace(mobile, '[^0-9]', '', 'g') LIKE %s
+                kw_phone_cleaned LIKE %s
+                OR kw_mobile_cleaned LIKE %s
+                OR regexp_replace(COALESCE(phone,''), '[^0-9]', '', 'g') LIKE %s
+                OR regexp_replace(COALESCE(mobile,''), '[^0-9]', '', 'g') LIKE %s
               )
             ORDER BY
                 (CASE WHEN name ~ '^[0-9 +().-]+$' THEN 1 ELSE 0 END) ASC,
                 id ASC
             LIMIT 1
-        """, [f'%{suffix}', f'%{suffix}'])
+        """, [f'%{suffix}', f'%{suffix}', f'%{suffix}', f'%{suffix}'])
         row = request.env.cr.fetchone()
         return request.env['res.partner'].sudo().browse(row[0]) if row else request.env['res.partner'].sudo().browse()
+
+    def _find_existing_lead(self, env, partner, norm_phone):
+        """Find existing open lead by partner or by phone number (prevents duplicates)."""
+        if partner:
+            lead = env['crm.lead'].sudo().search([
+                ('partner_id', '=', partner.id),
+                ('type', 'in', ('lead', 'opportunity')),
+                ('probability', '<', 100),
+            ], limit=1)
+            if lead:
+                return lead
+        # Fallback: search by phone suffix — catches leads without partner_id
+        if norm_phone:
+            suffix = norm_phone[-9:]
+            lead = env['crm.lead'].sudo().search([
+                ('phone', 'ilike', suffix),
+                ('type', 'in', ('lead', 'opportunity')),
+                ('probability', '<', 100),
+            ], order='create_date desc', limit=1)
+            if lead:
+                return lead
+        return env['crm.lead'].sudo().browse()
 
     def _find_user_by_sip(self, sip):
         if not sip:
@@ -108,9 +134,7 @@ class ZadarmaWebhook(http.Controller):
         partner = self._find_partner(norm_phone)
         user = self._find_user_by_sip(sip) if sip else env['res.users'].sudo().browse()
 
-        lead = env['crm.lead'].sudo().search([
-            ('partner_id', '=', partner.id), ('type', '=', 'lead'), ('probability', '<', 100)
-        ], limit=1) if partner else env['crm.lead'].sudo().browse()
+        lead = self._find_existing_lead(env, partner, norm_phone)
 
         if not partner and not lead:
             lead = env['crm.lead'].sudo().create({
@@ -154,9 +178,7 @@ class ZadarmaWebhook(http.Controller):
         partner = self._find_partner(phone)
         user = self._find_user_by_sip(sip)
 
-        lead = env['crm.lead'].sudo().search([
-            ('partner_id', '=', partner.id), ('type', '=', 'lead'), ('probability', '<', 100)
-        ], limit=1) if partner else env['crm.lead'].sudo().browse()
+        lead = self._find_existing_lead(env, partner, phone)
 
         duration = int(data.get('duration', 0))
         env['zadarma.call'].sudo().create({
