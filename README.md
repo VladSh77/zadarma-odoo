@@ -1,4 +1,4 @@
-# 🔌 Zadarma VoIP Integration for Odoo 17
+# 🔌 Fayna Zadarma Telephony — Odoo 17
 
 ![Odoo Version](https://img.shields.io/badge/Odoo-17.0%20Community-purple)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)

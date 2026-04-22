@@ -4,6 +4,22 @@
 
 ---
 
+## [17.0.1.6.0] — 2026-04-22
+
+### Змінено (Fayna brand alignment)
+
+- **Manifest:** `name` → `Fayna Zadarma Telephony` (додано префікс Fayna, прибрано «(Campscout)» з name — він у summary);
+- **Manifest:** `author` → `Fayna Digital — Volodymyr Shevchenko` (раніше `Fayna`, занадто коротко);
+- **Manifest:** `website` → `https://fayna.agency` (fix stale `fayna.company`);
+- **Manifest:** version schema `17.0.X.Y.Z` (раніше `1.5.0` без Odoo prefix);
+- **Manifest:** додано повний `description` з переліком можливостей;
+- `static/description/index.html` — canonical Fayna-style (green #20ac41 badge, wordmark, meta, features cards, flow, requirements);
+- README h1 → `Fayna Zadarma Telephony — Odoo 17`.
+
+### Причина
+
+Вирівняння з canonical Fayna module standard (memory `reference_fayna_odoo_module_style.md`). Всі наші модулі мають єдиний brand-формат.
+
 ## [ops] — 2026-04-10
 
 - Git sync only: локально, **`origin/main`** і **`/opt/campscout/custom-addons/zadarma_odoo`** узгоджені (**`git pull --ff-only`**); змін коду **немає**.
