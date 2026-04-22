@@ -4,6 +4,34 @@
 
 ---
 
+## [17.0.1.7.0] — 2026-04-22
+
+### Added
+
+- **Баланси dashboard** (`zadarma.dashboard`) — новий меню-пункт «Баланси» у Zadarma root showing:
+  - Zadarma API balance (HMAC-SHA1 signed request)
+  - TurboSMS balance (через `kw.sms.provider`)
+- Кнопка «Оновити» для refresh
+- Access: `base.group_user` (всі authenticated)
+
+### Origin
+
+Цей код був розроблений **2026-04-20 напряму на проді** (AI-помилка, workflow violation). 2026-04-22 rescued з прода → git → origin. Детально у `DevJournal/sessions/LOG.md` `#INCIDENT-AI-2026-04-20`.
+
+### Dependencies
+
+- `kw.sms.provider` (third-party KW Labs TurboSMS module) — для turbosms balance fetching
+
+### Files
+
+- `models/zadarma_dashboard.py` — 109 lines
+- `views/zadarma_dashboard_views.xml` — 38 lines
+- `models/__init__.py` — +1 import
+- `security/ir.model.access.csv` — +1 grant
+- `__manifest__.py` — +1 view у data
+
+---
+
 ## [17.0.1.6.0] — 2026-04-22
 
 ### Змінено (Fayna brand alignment)
