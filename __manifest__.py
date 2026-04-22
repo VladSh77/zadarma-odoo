@@ -1,6 +1,6 @@
 {
     'name': 'Fayna Zadarma Telephony',
-    'version': '17.0.1.6.0',
+    'version': '17.0.1.7.0',
     'category': 'CRM',
     'summary': 'Fayna Digital — інтеграція хмарної АТС Zadarma з Odoo CRM: автозбереження дзвінків, chatter, SMS, аналітика',
     'description': """
@@ -35,6 +35,7 @@ Fayna Zadarma Telephony
         'views/res_users_views.xml',
         'views/partner_lead_views.xml',
         'views/zadarma_import_views.xml',
+        'views/zadarma_dashboard_views.xml',
     ],
     'installable': True,
     'application': True,
