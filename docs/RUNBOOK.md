@@ -40,7 +40,7 @@ ORDER BY COUNT(*) DESC;
 
 ```sql
 -- Розмір attachments за Zadarma за місяць
-SELECT DATE_TRUNC('month', a.create_date), 
+SELECT DATE_TRUNC('month', a.create_date),
        pg_size_pretty(SUM(a.file_size)) as size
 FROM ir_attachment a
 JOIN zadarma_call z ON a.id = z.recording_attachment_id
@@ -116,7 +116,7 @@ ORDER BY z.started_at DESC;
 ### Manager performance
 
 ```sql
-SELECT u.login, 
+SELECT u.login,
        COUNT(*) FILTER (WHERE z.direction = 'in') as incoming,
        COUNT(*) FILTER (WHERE z.direction = 'out') as outgoing,
        AVG(z.duration_sec) FILTER (WHERE z.disposition = 'answered') as avg_duration
@@ -131,8 +131,8 @@ ORDER BY incoming + outgoing DESC;
 
 Перевірка активності:
 ```sql
-SELECT status, COUNT(*) 
-FROM zadarma_sms_message 
+SELECT status, COUNT(*)
+FROM zadarma_sms_message
 WHERE create_date > NOW() - INTERVAL '7 days'
 GROUP BY status;
 ```

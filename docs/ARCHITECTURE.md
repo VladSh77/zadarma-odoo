@@ -124,7 +124,7 @@ Zadarma piднімає дзвінок:
 ```python
 class ZadarmaCallExt(models.Model):
     _inherit = 'zadarma.call'
-    
+
     def _post_process_call(self):
         super()._post_process_call()
         # My custom logic після NOTIFY_END

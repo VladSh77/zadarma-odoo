@@ -1,7 +1,9 @@
-from . import zadarma_call
-from . import res_company
-from . import res_users
-from . import partner_lead_ext
-from . import res_partner
-from . import zadarma_import
-from . import zadarma_dashboard
+from . import (
+    partner_lead_ext,
+    res_company,
+    res_partner,
+    res_users,
+    zadarma_call,
+    zadarma_dashboard,
+    zadarma_import,
+)

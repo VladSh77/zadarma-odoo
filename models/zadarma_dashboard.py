@@ -1,11 +1,11 @@
-import logging
+import base64
 import hashlib
 import hmac
-import base64
-import requests
+import logging
 from urllib.parse import urlencode
 
-from odoo import models, fields, api
+import requests
+from odoo import api, fields, models
 
 _logger = logging.getLogger(__name__)
 
@@ -14,10 +14,8 @@ class ZadarmaDashboard(models.TransientModel):
     _name = 'zadarma.dashboard'
     _description = 'Zadarma & TurboSMS Dashboard'
 
-    zadarma_balance = fields.Char(
-        string='Баланс Zadarma', readonly=True)
-    turbosms_balance = fields.Char(
-        string='Баланс TurboSMS', readonly=True)
+    zadarma_balance = fields.Char(string='Баланс Zadarma', readonly=True)
+    turbosms_balance = fields.Char(string='Баланс TurboSMS', readonly=True)
 
     @api.model
     def _get_zadarma_balance(self):
@@ -30,11 +28,9 @@ class ZadarmaDashboard(models.TransientModel):
             method = '/v1/info/balance/'
             params = {}
             qs = urlencode(sorted(params.items()))
-            md5 = hashlib.md5(qs.encode()).hexdigest()
+            md5 = hashlib.md5(qs.encode()).hexdigest()  # noqa: S324 Zadarma API signature
             sign = method + qs + md5
-            sig = hmac.new(
-                secret.encode(), sign.encode(), hashlib.sha1
-            ).hexdigest()
+            sig = hmac.new(secret.encode(), sign.encode(), hashlib.sha1).hexdigest()
             sig_b64 = base64.b64encode(sig.encode()).decode()
             url = f'https://api.zadarma.com{method}'
             if qs:
@@ -56,8 +52,7 @@ class ZadarmaDashboard(models.TransientModel):
 
     @api.model
     def _get_turbosms_balance(self):
-        provider = self.env['kw.sms.provider'].search(
-            [('state', '=', 'enabled')], limit=1)
+        provider = self.env['kw.sms.provider'].search([('state', '=', 'enabled')], limit=1)
         if not provider or not provider.turbosms_token:
             return 'Не налаштовано'
         try:
@@ -81,10 +76,12 @@ class ZadarmaDashboard(models.TransientModel):
 
     @api.model
     def open_dashboard(self):
-        rec = self.create({
-            'zadarma_balance': self._get_zadarma_balance(),
-            'turbosms_balance': self._get_turbosms_balance(),
-        })
+        rec = self.create(
+            {
+                'zadarma_balance': self._get_zadarma_balance(),
+                'turbosms_balance': self._get_turbosms_balance(),
+            }
+        )
         return {
             'type': 'ir.actions.act_window',
             'name': 'Баланси',
@@ -95,10 +92,12 @@ class ZadarmaDashboard(models.TransientModel):
         }
 
     def action_refresh(self):
-        self.write({
-            'zadarma_balance': self._get_zadarma_balance(),
-            'turbosms_balance': self._get_turbosms_balance(),
-        })
+        self.write(
+            {
+                'zadarma_balance': self._get_zadarma_balance(),
+                'turbosms_balance': self._get_turbosms_balance(),
+            }
+        )
         return {
             'type': 'ir.actions.act_window',
             'name': 'Баланси',

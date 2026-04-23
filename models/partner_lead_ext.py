@@ -1,4 +1,5 @@
-from odoo import models, fields, api
+from odoo import fields, models
+
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
@@ -21,6 +22,7 @@ class ResPartner(models.Model):
             'domain': [('partner_id', '=', self.id)],
             'context': {'default_partner_id': self.id},
         }
+
 
 class CrmLead(models.Model):
     _inherit = 'crm.lead'
