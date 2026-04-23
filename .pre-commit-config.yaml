@@ -30,7 +30,7 @@ repos:
     rev: 1.7.10
     hooks:
       - id: bandit
-        args: [-ll, -r, .]  # -ll = low severity threshold, -r = recursive
+        args: [-ll, -r, --skip, B324, .]  # --skip B324: MD5 для Zadarma API signatures
         exclude: ^tests/
 
   # YAML / JSON / whitespace / merge conflicts
