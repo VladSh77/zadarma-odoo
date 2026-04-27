@@ -1,6 +1,6 @@
-# Dev tooling config для Odoo 17 module `fayna_rodo_compliance`.
+# Dev tooling config для Odoo 17 module `zadarma_odoo`.
 # Sama модуль не є Python-пакетом (він Odoo module), тому [project] відсутній.
-# Тут тільки налаштування для ruff / pytest / coverage.
+# Тут тільки налаштування для ruff / pytest / coverage / bandit.
 
 [tool.ruff]
 line-length = 100
@@ -63,3 +63,10 @@ omit = [
 fail_under = 70
 show_missing = true
 skip_covered = true
+
+[tool.bandit]
+# B324: MD5/SHA1 insecure hash detector.
+# У zadarma_odoo MD5 — для API signature (Zadarma protocol вимагає MD5 per їхніми specs).
+# Це API-mandated, не security issue. ruff у коді також має `# noqa: S324` коментар.
+skips = ["B324"]
+exclude_dirs = ["tests"]
